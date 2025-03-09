@@ -2199,7 +2199,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         println!("{}", serde_json::to_string_pretty(&response)?);
                     } else {
                         if response.code == 0 {
-                            println!("Effect updated successfully");
+                            println!("Effect updated successfully (id={})", id);
                         } else {
                             println!("Error: {} (code: {})", response.desc, response.code);
                         }
