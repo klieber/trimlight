@@ -980,7 +980,7 @@ mod tests {
             .match_header("authorization", mockito::Matcher::Any)
             .match_header("S-ClientId", mockito::Matcher::Any)
             .match_header("S-Timestamp", mockito::Matcher::Any)
-            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"category":1,"mode":1,"speed":5,"brightness":100,"pixelLen":50,"reverse":false}}"#.to_string()))
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"category":0,"mode":1,"speed":5,"brightness":100,"pixelLen":50,"reverse":false}}"#.to_string()))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(mock_response.to_string())
