@@ -55,29 +55,55 @@ trimlight-cli rename --device ID --name "New Name"  # Specify a particular devic
 
 ### Effect Control
 
+List saved effects:
+```bash
+trimlight-cli effects list
+```
+
 Preview an effect:
 ```bash
 # Basic usage
-trimlight-cli effect --mode 1
+trimlight-cli effects preview --mode 1
 
 # Full customization
-trimlight-cli effect --mode 1 --speed 150 --brightness 200 --pixel-len 45 --reverse
+trimlight-cli effects preview --mode 1 --speed 150 --brightness 200 --pixel-len 45 --reverse
 
 # Specify a particular device
-trimlight-cli effect --device ID --mode 1
+trimlight-cli effects preview --device ID --mode 1
 ```
 
-List and search effects:
+List and search available effect modes:
 ```bash
-# List all effects
-trimlight-cli modes
+# List all modes
+trimlight-cli effects modes
 
 # Search for effects
-trimlight-cli modes --search rainbow
+trimlight-cli effects modes --search rainbow
 
 # Filter by category
-trimlight-cli modes --built-in  # Show only built-in effects
-trimlight-cli modes --custom    # Show only custom effects
+trimlight-cli effects modes --built-in  # Show only built-in effects
+trimlight-cli effects modes --custom    # Show only custom effects
+```
+
+Manage custom effects:
+```bash
+# Add a new effect
+trimlight-cli effects add --name "My Effect" --mode 1
+
+# Update an existing effect
+trimlight-cli effects update --id 1 --name "New Name"
+
+# Delete an effect
+trimlight-cli effects delete --id 1
+```
+
+Manage combined effects:
+```bash
+# Set a combined effect sequence
+trimlight-cli effects combined set --effects 1,2,3 --interval 60
+
+# Clear the combined effect sequence
+trimlight-cli effects combined clear
 ```
 
 ### JSON Output

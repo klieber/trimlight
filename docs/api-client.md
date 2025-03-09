@@ -56,6 +56,45 @@ let response = client.preview_builtin_effect(
     30,           // Pixel length (1-90)
     false         // Reverse direction
 ).await?;
+
+// Add a custom effect
+let response = client.add_effect(
+    "device_id",
+    "My Effect",  // Effect name
+    1,            // Effect mode (0-16)
+    100,          // Speed
+    100,          // Brightness
+    Some(30),     // Optional pixel length
+    Some(false),  // Optional reverse direction
+    None,         // Optional pixel data
+).await?;
+
+// Update an existing effect
+let response = client.update_effect(
+    "device_id",
+    1,                    // Effect ID
+    Some("New Name"),    // Optional new name
+    Some(2),            // Optional new mode
+    Some(150),          // Optional new speed
+    Some(200),          // Optional new brightness
+    Some(45),           // Optional new pixel length
+    Some(true),         // Optional new reverse direction
+    None,               // Optional new pixel data
+).await?;
+
+// Delete an effect
+let response = client.delete_effect("device_id", 1).await?;
+
+// Set a combined effect sequence
+let effect_ids = vec![1, 2, 3];
+let response = client.set_combined_effect(
+    "device_id",
+    &effect_ids,
+    60,  // Interval in seconds
+).await?;
+
+// Clear a combined effect sequence
+let response = client.clear_combined_effect("device_id").await?;
 ```
 
 ## Response Types
