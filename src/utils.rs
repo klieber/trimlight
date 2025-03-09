@@ -10,15 +10,21 @@ pub fn parse_time(time: &str) -> Result<(i32, i32), TrimlightError> {
         });
     }
 
-    let hours = parts[0].trim().parse::<i32>().map_err(|_| TrimlightError::ApiError {
-        code: 400,
-        message: "Invalid hours".to_string(),
-    })?;
+    let hours = parts[0]
+        .trim()
+        .parse::<i32>()
+        .map_err(|_| TrimlightError::ApiError {
+            code: 400,
+            message: "Invalid hours".to_string(),
+        })?;
 
-    let minutes = parts[1].trim().parse::<i32>().map_err(|_| TrimlightError::ApiError {
-        code: 400,
-        message: "Invalid minutes".to_string(),
-    })?;
+    let minutes = parts[1]
+        .trim()
+        .parse::<i32>()
+        .map_err(|_| TrimlightError::ApiError {
+            code: 400,
+            message: "Invalid minutes".to_string(),
+        })?;
 
     if hours < 0 || hours > 23 || minutes < 0 || minutes > 59 {
         return Err(TrimlightError::ApiError {
@@ -40,15 +46,19 @@ pub fn parse_date(date: &str) -> Result<(i32, i32), TrimlightError> {
         });
     }
 
-    let month = parts[0].parse::<i32>().map_err(|_| TrimlightError::ApiError {
-        code: 400,
-        message: "Invalid month".to_string(),
-    })?;
+    let month = parts[0]
+        .parse::<i32>()
+        .map_err(|_| TrimlightError::ApiError {
+            code: 400,
+            message: "Invalid month".to_string(),
+        })?;
 
-    let day = parts[1].parse::<i32>().map_err(|_| TrimlightError::ApiError {
-        code: 400,
-        message: "Invalid day".to_string(),
-    })?;
+    let day = parts[1]
+        .parse::<i32>()
+        .map_err(|_| TrimlightError::ApiError {
+            code: 400,
+            message: "Invalid day".to_string(),
+        })?;
 
     if month < 1 || month > 12 || day < 1 || day > 31 {
         return Err(TrimlightError::ApiError {

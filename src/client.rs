@@ -1,6 +1,9 @@
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use hmac::{Hmac, Mac};
-use reqwest::{Client as ReqwestClient, Method, header::{HeaderMap, HeaderValue}};
+use reqwest::{
+    header::{HeaderMap, HeaderValue},
+    Client as ReqwestClient, Method,
+};
 use serde::Serialize;
 use sha2::Sha256;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -30,7 +33,11 @@ impl TrimlightClient {
     }
 
     #[cfg(test)]
-    pub fn with_base_url(client_id: impl Into<String>, client_secret: impl Into<String>, api_base_url: impl Into<String>) -> Self {
+    pub fn with_base_url(
+        client_id: impl Into<String>,
+        client_secret: impl Into<String>,
+        api_base_url: impl Into<String>,
+    ) -> Self {
         Self {
             client: ReqwestClient::new(),
             client_id: client_id.into(),
@@ -54,14 +61,25 @@ impl TrimlightClient {
         let access_token = BASE64.encode(mac.finalize().into_bytes());
 
         let mut headers = HeaderMap::new();
-        headers.insert("authorization", HeaderValue::from_str(&access_token).unwrap());
-        headers.insert("S-ClientId", HeaderValue::from_str(&self.client_id).unwrap());
+        headers.insert(
+            "authorization",
+            HeaderValue::from_str(&access_token).unwrap(),
+        );
+        headers.insert(
+            "S-ClientId",
+            HeaderValue::from_str(&self.client_id).unwrap(),
+        );
         headers.insert("S-Timestamp", HeaderValue::from_str(&timestamp).unwrap());
 
         headers
     }
 
-    async fn request<T, U>(&self, method: Method, endpoint: &str, body: Option<&T>) -> Result<U, TrimlightError>
+    async fn request<T, U>(
+        &self,
+        method: Method,
+        endpoint: &str,
+        body: Option<&T>,
+    ) -> Result<U, TrimlightError>
     where
         T: Serialize + ?Sized,
         U: for<'de> serde::de::Deserialize<'de> + Default,
@@ -92,15 +110,22 @@ impl TrimlightClient {
     }
 
     // Device Management Methods
-    pub async fn get_device_list(&self, page: Option<i32>) -> Result<DeviceListResponse, TrimlightError> {
+    pub async fn get_device_list(
+        &self,
+        page: Option<i32>,
+    ) -> Result<DeviceListResponse, TrimlightError> {
         let body = serde_json::json!({
             "page": page
         });
 
-        self.request(Method::GET, "/v1/oauth/resources/devices", Some(&body)).await
+        self.request(Method::GET, "/v1/oauth/resources/devices", Some(&body))
+            .await
     }
 
-    pub async fn get_device_details(&self, device_id: &str) -> Result<DeviceDetails, TrimlightError> {
+    pub async fn get_device_details(
+        &self,
+        device_id: &str,
+    ) -> Result<DeviceDetails, TrimlightError> {
         let body = serde_json::json!({
             "deviceId": device_id,
             "currentDate": {
@@ -114,10 +139,15 @@ impl TrimlightClient {
             }
         });
 
-        self.request(Method::POST, "/v1/oauth/resources/device/get", Some(&body)).await
+        self.request(Method::POST, "/v1/oauth/resources/device/get", Some(&body))
+            .await
     }
 
-    pub async fn set_device_switch_state(&self, device_id: &str, switch_state: i32) -> Result<BasicResponse, TrimlightError> {
+    pub async fn set_device_switch_state(
+        &self,
+        device_id: &str,
+        switch_state: i32,
+    ) -> Result<BasicResponse, TrimlightError> {
         let body = serde_json::json!({
             "deviceId": device_id,
             "payload": {
@@ -125,10 +155,19 @@ impl TrimlightClient {
             }
         });
 
-        self.request(Method::POST, "/v1/oauth/resources/device/update", Some(&body)).await
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/update",
+            Some(&body),
+        )
+        .await
     }
 
-    pub async fn set_device_name(&self, device_id: &str, name: &str) -> Result<BasicResponse, TrimlightError> {
+    pub async fn set_device_name(
+        &self,
+        device_id: &str,
+        name: &str,
+    ) -> Result<BasicResponse, TrimlightError> {
         let body = serde_json::json!({
             "deviceId": device_id,
             "payload": {
@@ -136,7 +175,12 @@ impl TrimlightClient {
             }
         });
 
-        self.request(Method::POST, "/v1/oauth/resources/device/update", Some(&body)).await
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/update",
+            Some(&body),
+        )
+        .await
     }
 
     // Effect Management Methods
@@ -161,7 +205,12 @@ impl TrimlightClient {
             }
         });
 
-        self.request(Method::POST, "/v1/oauth/resources/device/effect/preview", Some(&body)).await
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/effect/preview",
+            Some(&body),
+        )
+        .await
     }
 
     pub async fn add_effect(
@@ -189,7 +238,12 @@ impl TrimlightClient {
             }
         });
 
-        self.request(Method::POST, "/v1/oauth/resources/device/effect/add", Some(&body)).await
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/effect/add",
+            Some(&body),
+        )
+        .await
     }
 
     pub async fn update_effect(
@@ -205,12 +259,14 @@ impl TrimlightClient {
         pixels: Option<Vec<Pixel>>,
     ) -> Result<BasicResponse, TrimlightError> {
         let details = self.get_device_details(device_id).await?;
-        let current_effect = details.effects.iter().find(|e| e.id == effect_id).ok_or_else(|| {
-            TrimlightError::ApiError {
+        let current_effect = details
+            .effects
+            .iter()
+            .find(|e| e.id == effect_id)
+            .ok_or_else(|| TrimlightError::ApiError {
                 code: 404,
                 message: format!("Effect {} not found", effect_id),
-            }
-        })?;
+            })?;
 
         let body = serde_json::json!({
             "deviceId": device_id,
@@ -227,10 +283,19 @@ impl TrimlightClient {
             }
         });
 
-        self.request(Method::POST, "/v1/oauth/resources/device/effect/update", Some(&body)).await
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/effect/update",
+            Some(&body),
+        )
+        .await
     }
 
-    pub async fn delete_effect(&self, device_id: &str, effect_id: i32) -> Result<BasicResponse, TrimlightError> {
+    pub async fn delete_effect(
+        &self,
+        device_id: &str,
+        effect_id: i32,
+    ) -> Result<BasicResponse, TrimlightError> {
         let body = serde_json::json!({
             "deviceId": device_id,
             "payload": {
@@ -238,17 +303,28 @@ impl TrimlightClient {
             }
         });
 
-        self.request(Method::POST, "/v1/oauth/resources/device/effect/delete", Some(&body)).await
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/effect/delete",
+            Some(&body),
+        )
+        .await
     }
 
-    pub async fn view_effect(&self, device_id: &str, effect_id: i32) -> Result<BasicResponse, TrimlightError> {
+    pub async fn view_effect(
+        &self,
+        device_id: &str,
+        effect_id: i32,
+    ) -> Result<BasicResponse, TrimlightError> {
         let details = self.get_device_details(device_id).await?;
-        let effect = details.effects.iter().find(|e| e.id == effect_id).ok_or_else(|| {
-            TrimlightError::ApiError {
+        let effect = details
+            .effects
+            .iter()
+            .find(|e| e.id == effect_id)
+            .ok_or_else(|| TrimlightError::ApiError {
                 code: 404,
                 message: format!("Effect {} not found", effect_id),
-            }
-        })?;
+            })?;
 
         let body = serde_json::json!({
             "deviceId": device_id,
@@ -263,11 +339,19 @@ impl TrimlightClient {
             }
         });
 
-        self.request(Method::POST, "/v1/oauth/resources/device/effect/preview", Some(&body)).await
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/effect/preview",
+            Some(&body),
+        )
+        .await
     }
 
     // Schedule Management Methods
-    pub async fn get_device_schedules(&self, device_id: &str) -> Result<DeviceSchedules, TrimlightError> {
+    pub async fn get_device_schedules(
+        &self,
+        device_id: &str,
+    ) -> Result<DeviceSchedules, TrimlightError> {
         let details = self.get_device_details(device_id).await?;
         Ok(DeviceSchedules {
             daily: details.daily,
@@ -304,7 +388,12 @@ impl TrimlightClient {
             }
         });
 
-        self.request(Method::POST, "/v1/oauth/resources/device/schedule/daily/add", Some(&body)).await
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/schedule/daily/add",
+            Some(&body),
+        )
+        .await
     }
 
     pub async fn add_calendar_schedule(
@@ -345,7 +434,12 @@ impl TrimlightClient {
             }
         });
 
-        self.request(Method::POST, "/v1/oauth/resources/device/schedule/calendar/add", Some(&body)).await
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/schedule/calendar/add",
+            Some(&body),
+        )
+        .await
     }
 
     pub async fn delete_schedule(
@@ -357,10 +451,12 @@ impl TrimlightClient {
         let endpoint = match schedule_type.to_lowercase().as_str() {
             "daily" => "/v1/oauth/resources/device/schedule/daily/delete",
             "calendar" => "/v1/oauth/resources/device/schedule/calendar/delete",
-            _ => return Err(TrimlightError::ApiError {
-                code: 400,
-                message: "Invalid schedule type. Must be 'daily' or 'calendar'".to_string(),
-            }),
+            _ => {
+                return Err(TrimlightError::ApiError {
+                    code: 400,
+                    message: "Invalid schedule type. Must be 'daily' or 'calendar'".to_string(),
+                })
+            }
         };
 
         let body = serde_json::json!({
@@ -387,7 +483,12 @@ impl TrimlightClient {
             }
         });
 
-        self.request(Method::POST, "/v1/oauth/resources/device/schedule/daily/update", Some(&body)).await
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/schedule/daily/update",
+            Some(&body),
+        )
+        .await
     }
 
     pub async fn modify_schedule(
@@ -403,10 +504,12 @@ impl TrimlightClient {
         let endpoint = match schedule_type.to_lowercase().as_str() {
             "daily" => "/v1/oauth/resources/device/schedule/daily/update",
             "calendar" => "/v1/oauth/resources/device/schedule/calendar/update",
-            _ => return Err(TrimlightError::ApiError {
-                code: 400,
-                message: "Invalid schedule type. Must be 'daily' or 'calendar'".to_string(),
-            }),
+            _ => {
+                return Err(TrimlightError::ApiError {
+                    code: 400,
+                    message: "Invalid schedule type. Must be 'daily' or 'calendar'".to_string(),
+                })
+            }
         };
 
         let schedules = self.get_device_schedules(device_id).await?;
@@ -458,7 +561,10 @@ impl TrimlightClient {
         self.request(Method::POST, endpoint, Some(&body)).await
     }
 
-    pub async fn check_schedule_conflicts(&self, device_id: &str) -> Result<BasicResponse, TrimlightError> {
+    pub async fn check_schedule_conflicts(
+        &self,
+        device_id: &str,
+    ) -> Result<BasicResponse, TrimlightError> {
         let schedules = self.get_device_schedules(device_id).await?;
         let mut conflicts = Vec::new();
 
@@ -477,8 +583,8 @@ impl TrimlightClient {
                 let overlapping_days = match (schedule1.repetition, schedule2.repetition) {
                     (0, _) | (_, 0) => false, // Today only doesn't conflict
                     (1, _) | (_, 1) => true,  // Everyday conflicts with everything
-                    (2, 2) => true,  // Weekdays overlap with weekdays
-                    (3, 3) => true,  // Weekend overlaps with weekend
+                    (2, 2) => true,           // Weekdays overlap with weekdays
+                    (3, 3) => true,           // Weekend overlaps with weekend
                     (2, 3) | (3, 2) => false, // Weekdays don't overlap with weekend
                     _ => false,
                 };
@@ -493,8 +599,7 @@ impl TrimlightClient {
                     if (start1 <= end2 && end1 >= start2) || (start2 <= end1 && end2 >= start1) {
                         conflicts.push(format!(
                             "Daily schedules {} and {} have overlapping times",
-                            schedule1.id,
-                            schedule2.id
+                            schedule1.id, schedule2.id
                         ));
                     }
                 }
@@ -512,17 +617,19 @@ impl TrimlightClient {
 
                 if (start1 <= end2 && end1 >= start2) || (start2 <= end1 && end2 >= start1) {
                     // Check time overlap
-                    let time_start1 = schedule1.start_time.hours * 60 + schedule1.start_time.minutes;
+                    let time_start1 =
+                        schedule1.start_time.hours * 60 + schedule1.start_time.minutes;
                     let time_end1 = schedule1.end_time.hours * 60 + schedule1.end_time.minutes;
-                    let time_start2 = schedule2.start_time.hours * 60 + schedule2.start_time.minutes;
+                    let time_start2 =
+                        schedule2.start_time.hours * 60 + schedule2.start_time.minutes;
                     let time_end2 = schedule2.end_time.hours * 60 + schedule2.end_time.minutes;
 
-                    if (time_start1 <= time_end2 && time_end1 >= time_start2) ||
-                       (time_start2 <= time_end1 && time_end2 >= time_start1) {
+                    if (time_start1 <= time_end2 && time_end1 >= time_start2)
+                        || (time_start2 <= time_end1 && time_end2 >= time_start1)
+                    {
                         conflicts.push(format!(
                             "Calendar schedules {} and {} have overlapping dates and times",
-                            schedule1.id,
-                            schedule2.id
+                            schedule1.id, schedule2.id
                         ));
                     }
                 }
@@ -557,10 +664,18 @@ impl TrimlightClient {
             }
         });
 
-        self.request(Method::POST, "/v1/oauth/resources/device/effect/combined/set", Some(&body)).await
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/effect/combined/set",
+            Some(&body),
+        )
+        .await
     }
 
-    pub async fn clear_combined_effect(&self, device_id: &str) -> Result<BasicResponse, TrimlightError> {
+    pub async fn clear_combined_effect(
+        &self,
+        device_id: &str,
+    ) -> Result<BasicResponse, TrimlightError> {
         let body = serde_json::json!({
             "deviceId": device_id,
             "payload": {
@@ -569,7 +684,12 @@ impl TrimlightClient {
             }
         });
 
-        self.request(Method::POST, "/v1/oauth/resources/device/effect/combined/set", Some(&body)).await
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/effect/combined/set",
+            Some(&body),
+        )
+        .await
     }
 
     // Overlay Effect Methods
@@ -589,10 +709,18 @@ impl TrimlightClient {
             }
         });
 
-        self.request(Method::POST, "/v1/oauth/resources/device/effect/overlay", Some(&body)).await
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/effect/overlay",
+            Some(&body),
+        )
+        .await
     }
 
-    pub async fn clear_overlay_effects(&self, device_id: &str) -> Result<BasicResponse, TrimlightError> {
+    pub async fn clear_overlay_effects(
+        &self,
+        device_id: &str,
+    ) -> Result<BasicResponse, TrimlightError> {
         let body = serde_json::json!({
             "deviceId": device_id,
             "payload": {
@@ -600,7 +728,12 @@ impl TrimlightClient {
             }
         });
 
-        self.request(Method::POST, "/v1/oauth/resources/device/effect/overlay", Some(&body)).await
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/effect/overlay",
+            Some(&body),
+        )
+        .await
     }
 }
 
@@ -633,7 +766,8 @@ mod tests {
             }
         });
 
-        let _m = server.mock("GET", "/v1/oauth/resources/devices")
+        let _m = server
+            .mock("GET", "/v1/oauth/resources/devices")
             .match_header("authorization", mockito::Matcher::Any)
             .match_header("S-ClientId", mockito::Matcher::Any)
             .match_header("S-Timestamp", mockito::Matcher::Any)
@@ -665,11 +799,14 @@ mod tests {
             }
         });
 
-        let _m = server.mock("POST", "/v1/oauth/resources/device/update")
+        let _m = server
+            .mock("POST", "/v1/oauth/resources/device/update")
             .match_header("authorization", mockito::Matcher::Any)
             .match_header("S-ClientId", mockito::Matcher::Any)
             .match_header("S-Timestamp", mockito::Matcher::Any)
-            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"switchState":1}}"#.to_string()))
+            .match_body(mockito::Matcher::JsonString(
+                r#"{"deviceId":"test123","payload":{"switchState":1}}"#.to_string(),
+            ))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(mock_response.to_string())
@@ -717,7 +854,8 @@ mod tests {
             }
         });
 
-        let _m = server.mock("POST", "/v1/oauth/resources/device/get")
+        let _m = server
+            .mock("POST", "/v1/oauth/resources/device/get")
             .match_header("authorization", mockito::Matcher::Any)
             .match_header("S-ClientId", mockito::Matcher::Any)
             .match_header("S-Timestamp", mockito::Matcher::Any)
@@ -744,7 +882,8 @@ mod tests {
             "desc": "Device not found"
         });
 
-        let _m = server.mock("GET", "/v1/oauth/resources/devices")
+        let _m = server
+            .mock("GET", "/v1/oauth/resources/devices")
             .match_header("authorization", mockito::Matcher::Any)
             .match_header("S-ClientId", mockito::Matcher::Any)
             .match_header("S-Timestamp", mockito::Matcher::Any)
@@ -779,8 +918,12 @@ mod tests {
             }
         });
 
-        let _m = server.mock("GET", "/v1/oauth/resources/devices")
-            .match_header("authorization", mockito::Matcher::Regex(r"^[A-Za-z0-9+/=]+$".to_string()))
+        let _m = server
+            .mock("GET", "/v1/oauth/resources/devices")
+            .match_header(
+                "authorization",
+                mockito::Matcher::Regex(r"^[A-Za-z0-9+/=]+$".to_string()),
+            )
             .match_header("S-ClientId", "test_id")
             .match_header("S-Timestamp", mockito::Matcher::Regex(r"^\d+$".to_string()))
             .with_status(200)
@@ -818,7 +961,10 @@ mod tests {
             .await;
 
         let client = create_test_client(&server).await;
-        let result = client.preview_builtin_effect("test123", 1, 5, 100, 50, false).await.unwrap();
+        let result = client
+            .preview_builtin_effect("test123", 1, 5, 100, 50, false)
+            .await
+            .unwrap();
 
         assert_eq!(result.code, 0);
         assert_eq!(result.desc, "Success");
@@ -848,7 +994,17 @@ mod tests {
             .await;
 
         let client = create_test_client(&server).await;
-        let result = client.add_effect("test123", "Test Effect", 1, 5, 100, Some(50), Some(true), None)
+        let result = client
+            .add_effect(
+                "test123",
+                "Test Effect",
+                1,
+                5,
+                100,
+                Some(50),
+                Some(true),
+                None,
+            )
             .await
             .unwrap();
 
@@ -879,7 +1035,8 @@ mod tests {
             }
         });
 
-        let _m1 = server.mock("POST", "/v1/oauth/resources/device/get")
+        let _m1 = server
+            .mock("POST", "/v1/oauth/resources/device/get")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(details_response.to_string())
@@ -897,7 +1054,8 @@ mod tests {
             }
         });
 
-        let _m2 = server.mock("POST", "/v1/oauth/resources/device/effect/update")
+        let _m2 = server
+            .mock("POST", "/v1/oauth/resources/device/effect/update")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(update_response.to_string())
@@ -906,14 +1064,25 @@ mod tests {
             .await;
 
         let client = create_test_client(&server).await;
-        let result = client.update_effect("test123", 1, Some("Updated Effect"), Some(2), None, None, None, None, None)
+        let result = client
+            .update_effect(
+                "test123",
+                1,
+                Some("Updated Effect"),
+                Some(2),
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
             .await;
 
         match result {
             Ok(response) => {
                 assert_eq!(response.code, 0);
                 assert_eq!(response.desc, "Success");
-            },
+            }
             Err(e) => panic!("Failed to update effect: {:?}", e),
         }
     }
@@ -930,11 +1099,14 @@ mod tests {
             }
         });
 
-        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/delete")
+        let _m = server
+            .mock("POST", "/v1/oauth/resources/device/effect/delete")
             .match_header("authorization", mockito::Matcher::Any)
             .match_header("S-ClientId", mockito::Matcher::Any)
             .match_header("S-Timestamp", mockito::Matcher::Any)
-            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"id":1}}"#.to_string()))
+            .match_body(mockito::Matcher::JsonString(
+                r#"{"deviceId":"test123","payload":{"id":1}}"#.to_string(),
+            ))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(mock_response.to_string())
@@ -971,7 +1143,8 @@ mod tests {
             }
         });
 
-        let _m1 = server.mock("POST", "/v1/oauth/resources/device/get")
+        let _m1 = server
+            .mock("POST", "/v1/oauth/resources/device/get")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(details_response.to_string())
@@ -989,7 +1162,8 @@ mod tests {
             }
         });
 
-        let _m2 = server.mock("POST", "/v1/oauth/resources/device/effect/preview")
+        let _m2 = server
+            .mock("POST", "/v1/oauth/resources/device/effect/preview")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(view_response.to_string())
@@ -1004,7 +1178,7 @@ mod tests {
             Ok(response) => {
                 assert_eq!(response.code, 0);
                 assert_eq!(response.desc, "Success");
-            },
+            }
             Err(e) => panic!("Failed to view effect: {:?}", e),
         }
     }
@@ -1033,7 +1207,8 @@ mod tests {
             .await;
 
         let client = create_test_client(&server).await;
-        let result = client.add_daily_schedule("test123", 1, "08:00".to_string(), "20:00".to_string(), 1)
+        let result = client
+            .add_daily_schedule("test123", 1, "08:00".to_string(), "20:00".to_string(), 1)
             .await
             .unwrap();
 
@@ -1065,14 +1240,17 @@ mod tests {
             .await;
 
         let client = create_test_client(&server).await;
-        let result = client.add_calendar_schedule(
-            "test123",
-            1,
-            "12-25".to_string(),
-            "12-31".to_string(),
-            "17:00".to_string(),
-            "23:00".to_string()
-        ).await.unwrap();
+        let result = client
+            .add_calendar_schedule(
+                "test123",
+                1,
+                "12-25".to_string(),
+                "12-31".to_string(),
+                "17:00".to_string(),
+                "23:00".to_string(),
+            )
+            .await
+            .unwrap();
 
         assert_eq!(result.code, 0);
         assert_eq!(result.desc, "Success");
@@ -1090,11 +1268,14 @@ mod tests {
             }
         });
 
-        let _m = server.mock("POST", "/v1/oauth/resources/device/schedule/daily/delete")
+        let _m = server
+            .mock("POST", "/v1/oauth/resources/device/schedule/daily/delete")
             .match_header("authorization", mockito::Matcher::Any)
             .match_header("S-ClientId", mockito::Matcher::Any)
             .match_header("S-Timestamp", mockito::Matcher::Any)
-            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"id":1}}"#.to_string()))
+            .match_body(mockito::Matcher::JsonString(
+                r#"{"deviceId":"test123","payload":{"id":1}}"#.to_string(),
+            ))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(mock_response.to_string())
@@ -1120,11 +1301,14 @@ mod tests {
             }
         });
 
-        let _m = server.mock("POST", "/v1/oauth/resources/device/schedule/daily/update")
+        let _m = server
+            .mock("POST", "/v1/oauth/resources/device/schedule/daily/update")
             .match_header("authorization", mockito::Matcher::Any)
             .match_header("S-ClientId", mockito::Matcher::Any)
             .match_header("S-Timestamp", mockito::Matcher::Any)
-            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"id":1,"enable":true}}"#.to_string()))
+            .match_body(mockito::Matcher::JsonString(
+                r#"{"deviceId":"test123","payload":{"id":1,"enable":true}}"#.to_string(),
+            ))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(mock_response.to_string())
@@ -1165,7 +1349,8 @@ mod tests {
             }
         });
 
-        let _m1 = server.mock("POST", "/v1/oauth/resources/device/get")
+        let _m1 = server
+            .mock("POST", "/v1/oauth/resources/device/get")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(details_response.to_string())
@@ -1191,15 +1376,18 @@ mod tests {
             .await;
 
         let client = create_test_client(&server).await;
-        let result = client.modify_schedule(
-            "test123",
-            1,
-            "daily",
-            Some(2),
-            Some("09:00".to_string()),
-            "21:00".to_string(),
-            None
-        ).await.unwrap();
+        let result = client
+            .modify_schedule(
+                "test123",
+                1,
+                "daily",
+                Some(2),
+                Some("09:00".to_string()),
+                "21:00".to_string(),
+                None,
+            )
+            .await
+            .unwrap();
 
         assert_eq!(result.code, 0);
         assert_eq!(result.desc, "Success");
@@ -1236,7 +1424,8 @@ mod tests {
             }
         });
 
-        let _m = server.mock("POST", "/v1/oauth/resources/device/get")
+        let _m = server
+            .mock("POST", "/v1/oauth/resources/device/get")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(details_response.to_string())
@@ -1247,7 +1436,9 @@ mod tests {
         let result = client.check_schedule_conflicts("test123").await.unwrap();
 
         assert_eq!(result.code, 1);
-        assert!(result.desc.contains("Daily schedules 1 and 2 have overlapping times"));
+        assert!(result
+            .desc
+            .contains("Daily schedules 1 and 2 have overlapping times"));
     }
 
     #[tokio::test]
@@ -1262,11 +1453,15 @@ mod tests {
             }
         });
 
-        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/combined/set")
+        let _m = server
+            .mock("POST", "/v1/oauth/resources/device/effect/combined/set")
             .match_header("authorization", mockito::Matcher::Any)
             .match_header("S-ClientId", mockito::Matcher::Any)
             .match_header("S-Timestamp", mockito::Matcher::Any)
-            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"effectIds":[1,2,3],"interval":30}}"#.to_string()))
+            .match_body(mockito::Matcher::JsonString(
+                r#"{"deviceId":"test123","payload":{"effectIds":[1,2,3],"interval":30}}"#
+                    .to_string(),
+            ))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(mock_response.to_string())
@@ -1274,7 +1469,10 @@ mod tests {
             .await;
 
         let client = create_test_client(&server).await;
-        let result = client.set_combined_effect("test123", &[1, 2, 3], 30).await.unwrap();
+        let result = client
+            .set_combined_effect("test123", &[1, 2, 3], 30)
+            .await
+            .unwrap();
 
         assert_eq!(result.code, 0);
         assert_eq!(result.desc, "Success");
@@ -1292,11 +1490,14 @@ mod tests {
             }
         });
 
-        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/combined/set")
+        let _m = server
+            .mock("POST", "/v1/oauth/resources/device/effect/combined/set")
             .match_header("authorization", mockito::Matcher::Any)
             .match_header("S-ClientId", mockito::Matcher::Any)
             .match_header("S-Timestamp", mockito::Matcher::Any)
-            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"effectIds":[],"interval":0}}"#.to_string()))
+            .match_body(mockito::Matcher::JsonString(
+                r#"{"deviceId":"test123","payload":{"effectIds":[],"interval":0}}"#.to_string(),
+            ))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(mock_response.to_string())
@@ -1352,11 +1553,14 @@ mod tests {
             }
         });
 
-        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/overlay")
+        let _m = server
+            .mock("POST", "/v1/oauth/resources/device/effect/overlay")
             .match_header("authorization", mockito::Matcher::Any)
             .match_header("S-ClientId", mockito::Matcher::Any)
             .match_header("S-Timestamp", mockito::Matcher::Any)
-            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"overlayEffects":[]}}"#.to_string()))
+            .match_body(mockito::Matcher::JsonString(
+                r#"{"deviceId":"test123","payload":{"overlayEffects":[]}}"#.to_string(),
+            ))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(mock_response.to_string())

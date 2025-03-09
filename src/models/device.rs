@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use super::effect::Effect;
-use super::schedule::{DailySchedule, CalendarSchedule};
+use super::schedule::{CalendarSchedule, DailySchedule};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Device {
