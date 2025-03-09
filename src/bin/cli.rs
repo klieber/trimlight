@@ -1055,8 +1055,8 @@ fn parse_pixels(pixels_str: &str) -> Result<Vec<Pixel>, Box<dyn std::error::Erro
             // Parse disabled (default to false if not specified)
             let disable = if parts.len() > 2 {
                 match parts[2].trim().parse::<i32>()? {
-                    0 => false,
-                    1 => true,
+                    0 => false,  // 0 means enabled (disable=false)
+                    1 => true,   // 1 means disabled (disable=true)
                     _ => return Err("Disabled value must be 0 or 1".into()),
                 }
             } else {
@@ -1357,6 +1357,9 @@ enum EffectCommands {
         /// Reverse the effect direction
         #[arg(short, long)]
         reverse: bool,
+        /// Custom pixel colors (format: 'R,G,B[:count][:disabled];...')
+        #[arg(long)]
+        pixels: Option<String>,
     },
     /// Update an existing effect
     Update {
@@ -1384,6 +1387,9 @@ enum EffectCommands {
         /// New reverse direction setting
         #[arg(short, long)]
         reverse: Option<bool>,
+        /// New custom pixel colors (format: 'R,G,B[:count][:disabled];...')
+        #[arg(long)]
+        pixels: Option<String>,
     },
     /// Delete an effect
     Delete {
@@ -2101,11 +2107,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     brightness,
                     pixel_len,
                     reverse,
+                    pixels,
                 } => {
                     let device_id = match device {
                         Some(id) => id,
                         None => get_default_device(&client).await?,
                     };
+
+                    // Parse pixels if provided
+                    let parsed_pixels: Option<Vec<Pixel>> = if let Some(pixels_str) = pixels {
+                        match parse_pixels(&pixels_str) {
+                            Ok(pixels) => Some(pixels),
+                            Err(e) => {
+                                eprintln!("Invalid pixels format: {}", e);
+                                std::process::exit(1);
+                            }
+                        }
+                    } else {
+                        None
+                    };
+
                     let response = client
                         .add_effect(
                             &device_id,
@@ -2115,14 +2136,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             brightness,
                             pixel_len,
                             Some(reverse),
-                            None, // No pixel data for now
+                            parsed_pixels,
                         )
                         .await?;
                     if cli.json {
                         println!("{}", serde_json::to_string_pretty(&response)?);
                     } else {
                         if response.code == 0 {
-                            println!("Effect added successfully");
+                            if let Some(id) = response.payload.and_then(|p| p.get("id")).and_then(|id| id.as_i64()) {
+                                println!("Effect added successfully (id={})", id);
+                            } else {
+                                println!("Effect added successfully");
+                            }
                         } else {
                             println!("Error: {} (code: {})", response.desc, response.code);
                         }
@@ -2137,11 +2162,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     brightness,
                     pixel_len,
                     reverse,
+                    pixels,
                 } => {
                     let device_id = match device {
                         Some(id) => id,
                         None => get_default_device(&client).await?,
                     };
+
+                    // Parse pixels if provided
+                    let parsed_pixels: Option<Vec<Pixel>> = if let Some(pixels_str) = pixels {
+                        match parse_pixels(&pixels_str) {
+                            Ok(pixels) => Some(pixels),
+                            Err(e) => {
+                                eprintln!("Invalid pixels format: {}", e);
+                                std::process::exit(1);
+                            }
+                        }
+                    } else {
+                        None
+                    };
+
                     let response = client
                         .update_effect(
                             &device_id,
@@ -2152,7 +2192,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             brightness,
                             pixel_len,
                             reverse,
-                            None, // No pixel data for now
+                            parsed_pixels,
                         )
                         .await?;
                     if cli.json {
