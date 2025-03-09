@@ -670,8 +670,7 @@ POST /v1/oauth/resources/device/effect/view
 ### Request Body
 ```json
 {
-    "code": 0,
-    "desc": "success",
+    "deviceId": "<device-id>",
     "payload": {
       "id": 10
     }
@@ -698,10 +697,9 @@ POST /v1/oauth/resources/device/effect/delete
 ### Request Body
 ```json
 {
-    "code": 0,
-    "desc": "success",
+    "deviceId": "<device-id>",
     "payload": {
-      "id": 0
+      "id": 10
     }
 }
 ```
