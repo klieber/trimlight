@@ -196,12 +196,39 @@ impl TrimlightClient {
         let body = serde_json::json!({
             "deviceId": device_id,
             "payload": {
-                "category": 1,  // 1 for built-in effects
+                "category": 0,  // 0 for built-in effects
                 "mode": mode,
                 "speed": speed,
                 "brightness": brightness,
                 "pixelLen": pixel_len,
                 "reverse": reverse
+            }
+        });
+
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/effect/preview",
+            Some(&body),
+        )
+        .await
+    }
+
+    pub async fn preview_custom_effect(
+        &self,
+        device_id: &str,
+        mode: i32,
+        speed: i32,
+        brightness: i32,
+        pixels: Option<Vec<Pixel>>,
+    ) -> Result<BasicResponse, TrimlightError> {
+        let body = serde_json::json!({
+            "deviceId": device_id,
+            "payload": {
+                "category": 1,  // 1 for custom effects
+                "mode": mode,
+                "speed": speed,
+                "brightness": brightness,
+                "pixels": pixels
             }
         });
 

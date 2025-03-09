@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use std::env;
-use trimlight::TrimlightClient;
+use trimlight::{TrimlightClient, Pixel};
 
 #[derive(Parser)]
 #[command(name = "trimlight")]
@@ -1026,6 +1026,31 @@ async fn get_default_device(
     Ok(devices.data[0].device_id.clone())
 }
 
+// Add helper function to parse pixel string
+fn parse_pixels(pixels_str: &str) -> Result<Vec<Pixel>, Box<dyn std::error::Error>> {
+    pixels_str
+        .split(';')
+        .enumerate()
+        .map(|(index, pixel)| {
+            let rgb: Vec<u8> = pixel
+                .split(',')
+                .map(|v| v.trim().parse::<u8>())
+                .collect::<Result<Vec<u8>, _>>()?;
+
+            if rgb.len() != 3 {
+                return Err("Each pixel must have exactly 3 values (R,G,B)".into());
+            }
+
+            Ok(Pixel {
+                index: index as i32,
+                count: 1,
+                color: ((rgb[0] as i32) << 16) | ((rgb[1] as i32) << 8) | (rgb[2] as i32),
+                disable: false,
+            })
+        })
+        .collect()
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// List all devices
@@ -1228,39 +1253,54 @@ enum EffectCommands {
     },
     /// Preview a built-in or custom effect
     #[command(after_help = "Examples:\n\
-    # Basic usage with just mode\n\
-    trimlight-cli effects preview --mode 1\n\
+    # Preview a built-in effect\n\
+    trimlight-cli effects preview --built-in 1 --speed 150 --brightness 200\n\
     \n\
-    # Full customization\n\
-    trimlight-cli effects preview --mode 1 --speed 150 --brightness 200 --pixel-len 45 --reverse\n\
+    # Preview a built-in effect with pixel length and reverse options\n\
+    trimlight-cli effects preview --built-in 1 --pixel-len 45 --reverse\n\
+    \n\
+    # Preview a custom effect\n\
+    trimlight-cli effects preview --custom 1 --speed 150 --brightness 200\n\
+    \n\
+    # Preview a custom effect with pixel colors\n\
+    trimlight-cli effects preview --custom 1 --pixels '255,0,0;0,255,0;0,0,255'\n\
     \n\
     # Specify a particular device\n\
-    trimlight-cli effects preview --device abc123 --mode 1\n\
+    trimlight-cli effects preview --device abc123 --built-in 1\n\
     \n\
-    Common effects:\n\
-    - Mode 0: Rainbow Gradual Chase\n\
-    - Mode 1: Rainbow Comet\n\
-    - Mode 2: Rainbow Segment\n\
-    - Mode 3: Rainbow Wave")]
+    Effect Types:\n\
+    - Built-in effects (modes 0-179): Support pixel_len and reverse options\n\
+    - Custom effects (modes 0-16): Support pixels option for custom colors\n\
+    \n\
+    Pixel Format:\n\
+    - Semicolon-separated list of RGB values: 'R,G,B;R,G,B;R,G,B'\n\
+    - Each RGB value is 0-255\n\
+    - Example: '255,0,0;0,255,0' creates a red pixel followed by a green pixel")]
     Preview {
         /// Device ID (optional, uses first device if not specified)
         #[arg(short, long)]
         device: Option<String>,
-        /// Effect mode number (0-179)
-        #[arg(short, long)]
-        mode: i32,
+        /// Built-in effect mode number (0-179)
+        #[arg(long, conflicts_with = "custom")]
+        built_in: Option<i32>,
+        /// Custom effect mode number (0-16)
+        #[arg(long, conflicts_with = "built_in")]
+        custom: Option<i32>,
         /// Effect animation speed (0=slowest, 255=fastest)
         #[arg(short = 's', long, default_value = "100")]
         speed: i32,
         /// LED brightness level (0=off, 255=maximum)
         #[arg(short, long, default_value = "100")]
         brightness: i32,
-        /// Number of LEDs to use in the effect (1-90)
-        #[arg(short, long, default_value = "30")]
+        /// Number of LEDs to use in the effect (1-90, built-in effects only)
+        #[arg(short, long, default_value = "30", requires = "built_in")]
         pixel_len: i32,
-        /// Reverse the effect animation direction
-        #[arg(short, long)]
+        /// Reverse the effect animation direction (built-in effects only)
+        #[arg(short, long, requires = "built_in")]
         reverse: bool,
+        /// JSON array of pixel colors for custom effects (custom effects only)
+        #[arg(long, requires = "custom")]
+        pixels: Option<String>,
     },
     /// Add a new custom effect
     Add {
@@ -1921,16 +1961,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 EffectCommands::Preview {
                     device,
-                    mode,
+                    built_in,
+                    custom,
                     speed,
                     brightness,
                     pixel_len,
                     reverse,
+                    pixels,
                 } => {
-                    if mode < 0 || mode > 179 {
-                        eprintln!("Invalid mode. Must be between 0 and 179");
-                        std::process::exit(1);
-                    }
+                    // Validate that either built_in or custom is specified
+                    let (mode, category) = match (built_in, custom) {
+                        (Some(mode), None) => {
+                            if mode < 0 || mode > 179 {
+                                eprintln!("Invalid built-in mode. Must be between 0 and 179");
+                                std::process::exit(1);
+                            }
+                            (mode, 0) // Category 0 for built-in
+                        }
+                        (None, Some(mode)) => {
+                            if mode < 0 || mode > 16 {
+                                eprintln!("Invalid custom mode. Must be between 0 and 16");
+                                std::process::exit(1);
+                            }
+                            (mode, 1) // Category 1 for custom
+                        }
+                        _ => {
+                            eprintln!("Must specify either --built-in or --custom");
+                            std::process::exit(1);
+                        }
+                    };
+
                     if speed < 0 || speed > 255 {
                         eprintln!("Invalid speed. Must be between 0 and 255");
                         std::process::exit(1);
@@ -1939,20 +1999,54 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         eprintln!("Invalid brightness. Must be between 0 and 255");
                         std::process::exit(1);
                     }
-                    if pixel_len < 1 || pixel_len > 90 {
-                        eprintln!("Invalid pixel length. Must be between 1 and 90");
-                        std::process::exit(1);
-                    }
 
                     let device_id = match device {
                         Some(id) => id,
                         None => get_default_device(&client).await?,
                     };
-                    let response = client
-                        .preview_builtin_effect(
-                            &device_id, mode, speed, brightness, pixel_len, reverse,
-                        )
-                        .await?;
+
+                    // Parse pixels if provided for custom effects
+                    let parsed_pixels: Option<Vec<Pixel>> = if let Some(pixels_str) = pixels {
+                        match parse_pixels(&pixels_str) {
+                            Ok(pixels) => Some(pixels),
+                            Err(e) => {
+                                eprintln!("Invalid pixels format: {}", e);
+                                std::process::exit(1);
+                            }
+                        }
+                    } else {
+                        None
+                    };
+
+                    let response = if category == 0 {
+                        // Built-in effect
+                        if pixel_len < 1 || pixel_len > 90 {
+                            eprintln!("Invalid pixel length. Must be between 1 and 90");
+                            std::process::exit(1);
+                        }
+                        client
+                            .preview_builtin_effect(
+                                &device_id,
+                                mode,
+                                speed,
+                                brightness,
+                                pixel_len,
+                                reverse,
+                            )
+                            .await?
+                    } else {
+                        // Custom effect
+                        client
+                            .preview_custom_effect(
+                                &device_id,
+                                mode,
+                                speed,
+                                brightness,
+                                parsed_pixels,
+                            )
+                            .await?
+                    };
+
                     if cli.json {
                         println!("{}", serde_json::to_string_pretty(&response)?);
                     } else {
