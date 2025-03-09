@@ -139,29 +139,13 @@ trimlight-cli details --json
 trimlight-cli switch --manual --json
 ```
 
-## Effect Categories
+## Effect Modes
 
-### Built-in Effects (modes 0-179)
-- Various pre-programmed effects including:
-  - Rainbow patterns
-  - Color stacking
-  - Comets and meteors
-  - Wave effects
-  - Stars and pulses
-  - Breathing effects
-  - Fire effects
-  - Strobes
+The Trimlight system supports two types of effects:
+- Built-in Effects (modes 0-179): Pre-programmed patterns including rainbows, comets, waves, and more
+- Custom Effects (modes 0-16): Configurable effects with pixel-by-pixel control
 
-### Custom Effects (modes 0-16)
-- Pixel-by-pixel control effects:
-  - Static colors
-  - Chase patterns
-  - Comet effects
-  - Wave patterns
-  - Stars
-  - Breathing
-  - Strobes
-  - Solid fades
+For a complete list of available effects and their descriptions, see [Effect Documentation](docs/effects.md).
 
 ## License
 
