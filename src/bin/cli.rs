@@ -286,34 +286,6 @@ enum Commands {
         #[arg(short, long)]
         name: String,
     },
-    /// List and search available effect modes
-    #[command(after_help = "Examples:\n\
-    # List all modes\n\
-    trimlight-cli modes\n\
-    \n\
-    # Search for modes containing 'rainbow'\n\
-    trimlight-cli modes --search rainbow\n\
-    \n\
-    # List only built-in modes\n\
-    trimlight-cli modes --built-in\n\
-    \n\
-    # List only custom modes\n\
-    trimlight-cli modes --custom\n\
-    \n\
-    Categories:\n\
-    - Built-in effects (modes 0-179)\n\
-    - Custom effects for pixel-by-pixel control (modes 0-16)")]
-    Modes {
-        /// Search for modes containing this text (case-insensitive)
-        #[arg(short, long)]
-        search: Option<String>,
-        /// Show only built-in effects
-        #[arg(long)]
-        built_in: bool,
-        /// Show only custom effects
-        #[arg(long)]
-        custom: bool,
-    },
     /// Manage schedules
     #[command(subcommand)]
     Schedule(ScheduleCommands),
@@ -432,6 +404,34 @@ enum EffectCommands {
         /// Device ID (optional, uses first device if not specified)
         #[arg(short, long)]
         device: Option<String>,
+    },
+    /// List and search available effect modes
+    #[command(after_help = "Examples:\n\
+    # List all modes\n\
+    trimlight-cli effects modes\n\
+    \n\
+    # Search for modes containing 'rainbow'\n\
+    trimlight-cli effects modes --search rainbow\n\
+    \n\
+    # List only built-in modes\n\
+    trimlight-cli effects modes --built-in\n\
+    \n\
+    # List only custom modes\n\
+    trimlight-cli effects modes --custom\n\
+    \n\
+    Categories:\n\
+    - Built-in effects (modes 0-179)\n\
+    - Custom effects for pixel-by-pixel control (modes 0-16)")]
+    Modes {
+        /// Search for modes containing this text (case-insensitive)
+        #[arg(short, long)]
+        search: Option<String>,
+        /// Show only built-in effects
+        #[arg(long)]
+        built_in: bool,
+        /// Show only custom effects
+        #[arg(long)]
+        custom: bool,
     },
     /// Preview a built-in or custom effect
     #[command(after_help = "Examples:\n\
@@ -739,57 +739,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
-        Commands::Modes { search, built_in, custom } => {
-            // Collect modes based on flags
-            let mut modes: Vec<&EffectMode> = Vec::new();
-
-            // If neither flag is set, show all modes
-            let show_built_in = !custom || built_in;
-            let show_custom = !built_in || custom;
-
-            if show_built_in {
-                modes.extend(BUILT_IN_EFFECTS.iter());
-            }
-            if show_custom {
-                modes.extend(CUSTOM_EFFECTS.iter());
-            }
-
-            // Filter by search term if specified
-            if let Some(term) = search {
-                let term_lower = term.to_lowercase();
-                modes.retain(|mode| mode.name.to_lowercase().contains(&term_lower));
-            }
-
-            if cli.json {
-                let json_modes: Vec<serde_json::Value> = modes
-                    .iter()
-                    .map(|mode| serde_json::json!({
-                        "id": mode.id,
-                        "name": mode.name,
-                        "category": mode.category
-                    }))
-                    .collect();
-                println!("{}", serde_json::to_string_pretty(&json_modes)?);
-            } else {
-                if modes.is_empty() {
-                    println!("No modes found matching your criteria.");
-                    return Ok(());
-                }
-
-                println!("Available Effect Modes:");
-                let mut current_category = "";
-                for mode in modes {
-                    if current_category != mode.category {
-                        current_category = mode.category;
-                        println!("\n{}:", mode.category);
-                        if mode.category == "Custom" {
-                            println!("  (For pixel-by-pixel control)");
-                        }
-                    }
-                    println!("  {:3} - {}", mode.id, mode.name);
-                }
-            }
-        }
         Commands::Schedule(schedule_command) => {
             match schedule_command {
                 ScheduleCommands::List { device } => {
@@ -982,6 +931,57 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 }
                                 println!();
                             }
+                        }
+                    }
+                }
+                EffectCommands::Modes { search, built_in, custom } => {
+                    // Collect modes based on flags
+                    let mut modes: Vec<&EffectMode> = Vec::new();
+
+                    // If neither flag is set, show all modes
+                    let show_built_in = !custom || built_in;
+                    let show_custom = !built_in || custom;
+
+                    if show_built_in {
+                        modes.extend(BUILT_IN_EFFECTS.iter());
+                    }
+                    if show_custom {
+                        modes.extend(CUSTOM_EFFECTS.iter());
+                    }
+
+                    // Filter by search term if specified
+                    if let Some(term) = search {
+                        let term_lower = term.to_lowercase();
+                        modes.retain(|mode| mode.name.to_lowercase().contains(&term_lower));
+                    }
+
+                    if cli.json {
+                        let json_modes: Vec<serde_json::Value> = modes
+                            .iter()
+                            .map(|mode| serde_json::json!({
+                                "id": mode.id,
+                                "name": mode.name,
+                                "category": mode.category
+                            }))
+                            .collect();
+                        println!("{}", serde_json::to_string_pretty(&json_modes)?);
+                    } else {
+                        if modes.is_empty() {
+                            println!("No modes found matching your criteria.");
+                            return Ok(());
+                        }
+
+                        println!("Available Effect Modes:");
+                        let mut current_category = "";
+                        for mode in modes {
+                            if current_category != mode.category {
+                                current_category = mode.category;
+                                println!("\n{}:", mode.category);
+                                if mode.category == "Custom" {
+                                    println!("  (For pixel-by-pixel control)");
+                                }
+                            }
+                            println!("  {:3} - {}", mode.id, mode.name);
                         }
                     }
                 }
