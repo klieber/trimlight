@@ -115,6 +115,22 @@ trimlight-cli effects combined set --effects 1,2,3 --interval 60
 trimlight-cli effects combined clear
 ```
 
+Manage overlay effects:
+```bash
+# Add a lightning effect to an existing effect
+trimlight-cli effects overlay add --type lightning --target 1
+
+# Add a snow effect to an existing effect
+trimlight-cli effects overlay add --type snow --target 2
+
+# Clear all overlay effects
+trimlight-cli effects overlay clear
+
+# Specify a particular device
+trimlight-cli effects overlay add --device ID --type lightning --target 1
+trimlight-cli effects overlay clear --device ID
+```
+
 ### JSON Output
 
 Add the `--json` flag to any command to get the raw JSON response:

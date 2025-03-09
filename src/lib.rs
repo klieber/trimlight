@@ -918,6 +918,49 @@ impl TrimlightClient {
             Some(&body),
         ).await
     }
+
+    /// Add an overlay effect
+    pub async fn add_overlay_effect(
+        &self,
+        device_id: &str,
+        overlay_type: i32,
+        target_effect_id: i32,
+    ) -> Result<BasicResponse, TrimlightError> {
+        let body = serde_json::json!({
+            "deviceId": device_id,
+            "payload": {
+                "overlayEffects": [{
+                    "overlayType": overlay_type,
+                    "targetEffect": target_effect_id
+                }]
+            }
+        });
+
+        self.request(
+            reqwest::Method::POST,
+            "/v1/oauth/resources/device/effect/overlay",
+            Some(&body),
+        ).await
+    }
+
+    /// Clear all overlay effects
+    pub async fn clear_overlay_effects(
+        &self,
+        device_id: &str,
+    ) -> Result<BasicResponse, TrimlightError> {
+        let body = serde_json::json!({
+            "deviceId": device_id,
+            "payload": {
+                "overlayEffects": []
+            }
+        });
+
+        self.request(
+            reqwest::Method::POST,
+            "/v1/oauth/resources/device/effect/overlay",
+            Some(&body),
+        ).await
+    }
 }
 
 /// Parse time string in HH:MM format

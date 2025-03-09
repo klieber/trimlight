@@ -547,6 +547,9 @@ enum EffectCommands {
         #[arg(short, long)]
         id: i32,
     },
+    /// Manage overlay effects (Lightning, Snow)
+    #[command(subcommand)]
+    Overlay(OverlayCommands),
 }
 
 #[derive(Subcommand)]
@@ -564,6 +567,46 @@ enum CombinedCommands {
         interval: i32,
     },
     /// Clear the combined effect sequence
+    Clear {
+        /// Device ID (optional, uses first device if not specified)
+        #[arg(short, long)]
+        device: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum OverlayCommands {
+    /// Add an overlay effect
+    #[command(after_help = "Examples:\n\
+    # Add a lightning effect to effect ID 1\n\
+    trimlight-cli effects overlay add --lightning --target 1\n\
+    \n\
+    # Add a snow effect to effect ID 2\n\
+    trimlight-cli effects overlay add --snow --target 2\n\
+    \n\
+    # Specify a particular device\n\
+    trimlight-cli effects overlay add --device abc123 --lightning --target 1")]
+    Add {
+        /// Device ID (optional, uses first device if not specified)
+        #[arg(short, long)]
+        device: Option<String>,
+        /// Add a lightning overlay effect
+        #[arg(long)]
+        lightning: bool,
+        /// Add a snow overlay effect
+        #[arg(long)]
+        snow: bool,
+        /// Target effect ID to apply the overlay to
+        #[arg(short, long)]
+        target: i32,
+    },
+    /// Clear all overlay effects
+    #[command(after_help = "Examples:\n\
+    # Clear all overlay effects\n\
+    trimlight-cli effects overlay clear\n\
+    \n\
+    # Specify a particular device\n\
+    trimlight-cli effects overlay clear --device abc123")]
     Clear {
         /// Device ID (optional, uses first device if not specified)
         #[arg(short, long)]
@@ -1170,6 +1213,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             println!("Effect loaded successfully");
                         } else {
                             println!("Error: {} (code: {})", response.desc, response.code);
+                        }
+                    }
+                }
+                EffectCommands::Overlay(overlay_command) => {
+                    match overlay_command {
+                        OverlayCommands::Add { device, lightning, snow, target } => {
+                            let device_id = match device {
+                                Some(id) => id,
+                                None => get_default_device(&client).await?,
+                            };
+
+                            // Validate that exactly one effect type is selected
+                            match (lightning, snow) {
+                                (true, false) => (),
+                                (false, true) => (),
+                                _ => return Err("Exactly one of --lightning or --snow must be specified".into()),
+                            }
+
+                            let overlay_type = if lightning { 0 } else { 1 };
+
+                            let response = client.add_overlay_effect(&device_id, overlay_type, target).await?;
+                            if cli.json {
+                                println!("{}", serde_json::to_string_pretty(&response)?);
+                            } else {
+                                let effect_type = if lightning { "lightning" } else { "snow" };
+                                println!("Successfully added {} overlay effect to effect {}", effect_type, target);
+                            }
+                        }
+                        OverlayCommands::Clear { device } => {
+                            let device_id = match device {
+                                Some(id) => id,
+                                None => get_default_device(&client).await?,
+                            };
+
+                            let response = client.clear_overlay_effects(&device_id).await?;
+                            if cli.json {
+                                println!("{}", serde_json::to_string_pretty(&response)?);
+                            } else {
+                                println!("Successfully cleared all overlay effects");
+                            }
                         }
                     }
                 }
