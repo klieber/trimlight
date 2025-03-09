@@ -1,3 +1,6 @@
+[![CI](https://github.com/klieber/trimlight/actions/workflows/ci.yml/badge.svg)](https://github.com/klieber/trimlight/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/klieber/trimlight/branch/main/graph/badge.svg)](https://codecov.io/gh/klieber/trimlight)
+
 # Trimlight CLI
 
 A command-line interface for controlling Trimlight LED devices. This tool provides easy access to device management and effect control features.
