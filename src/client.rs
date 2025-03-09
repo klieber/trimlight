@@ -9,13 +9,14 @@ use crate::error::TrimlightError;
 use crate::models::*;
 use crate::utils;
 
-const API_BASE_URL: &str = "https://trimlight.ledhue.com/trimlight";
+const DEFAULT_API_BASE_URL: &str = "https://trimlight.ledhue.com/trimlight";
 
 #[derive(Debug, Clone)]
 pub struct TrimlightClient {
     client: ReqwestClient,
     client_id: String,
     client_secret: String,
+    api_base_url: String,
 }
 
 impl TrimlightClient {
@@ -24,6 +25,17 @@ impl TrimlightClient {
             client: ReqwestClient::new(),
             client_id: client_id.into(),
             client_secret: client_secret.into(),
+            api_base_url: DEFAULT_API_BASE_URL.to_string(),
+        }
+    }
+
+    #[cfg(test)]
+    pub fn with_base_url(client_id: impl Into<String>, client_secret: impl Into<String>, api_base_url: impl Into<String>) -> Self {
+        Self {
+            client: ReqwestClient::new(),
+            client_id: client_id.into(),
+            client_secret: client_secret.into(),
+            api_base_url: api_base_url.into(),
         }
     }
 
@@ -54,7 +66,7 @@ impl TrimlightClient {
         T: Serialize + ?Sized,
         U: for<'de> serde::de::Deserialize<'de> + Default,
     {
-        let url = format!("{}{}", API_BASE_URL, endpoint);
+        let url = format!("{}{}", self.api_base_url, endpoint);
         let mut req = self.client.request(method, &url);
 
         // Add authentication headers
@@ -67,7 +79,7 @@ impl TrimlightClient {
         }
 
         let response = req.send().await?;
-        let api_response: ApiResponse<U> = response.json().await?;
+        let api_response: crate::models::ApiResponse<U> = response.json().await?;
 
         if api_response.code != 0 {
             return Err(TrimlightError::ApiError {
@@ -589,5 +601,196 @@ impl TrimlightClient {
         });
 
         self.request(Method::POST, "/v1/oauth/resources/device/effect/overlay", Some(&body)).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockito::Server;
+
+    async fn create_test_client(server: &Server) -> TrimlightClient {
+        TrimlightClient::with_base_url("test_id", "test_secret", server.url())
+    }
+
+    #[tokio::test]
+    async fn test_get_device_list() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "total": 1,
+                "current": 1,
+                "data": [{
+                    "deviceId": "test123",
+                    "name": "Test Device",
+                    "switchState": 1,
+                    "connectivity": 1,
+                    "state": 1,
+                    "fwVersionName": "1.0.0"
+                }]
+            }
+        });
+
+        let _m = server.mock("GET", "/v1/oauth/resources/devices")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.get_device_list(None).await.unwrap();
+
+        assert_eq!(result.total, 1);
+        assert_eq!(result.current, 1);
+        assert_eq!(result.data.len(), 1);
+        assert_eq!(result.data[0].device_id, "test123");
+        assert_eq!(result.data[0].name, "Test Device");
+    }
+
+    #[tokio::test]
+    async fn test_set_device_switch_state() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/update")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"switchState":1}}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.set_device_switch_state("test123", 1).await.unwrap();
+
+        assert_eq!(result.code, 0);
+        assert_eq!(result.desc, "Success");
+    }
+
+    #[tokio::test]
+    async fn test_get_device_details() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "name": "Test Device",
+                "switchState": 1,
+                "connectivity": 1,
+                "state": 1,
+                "colorOrder": 0,
+                "ic": 1,
+                "ports": [{
+                    "id": 1,
+                    "start": 0,
+                    "end": 100
+                }],
+                "fwVersionName": "1.0.0",
+                "effects": [],
+                "daily": [],
+                "calendar": [],
+                "currentDatetime": {
+                    "year": 24,
+                    "month": 3,
+                    "day": 9,
+                    "weekday": 0,
+                    "hours": 12,
+                    "minutes": 0,
+                    "seconds": 0
+                }
+            }
+        });
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/get")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.get_device_details("test123").await.unwrap();
+
+        assert_eq!(result.name, "Test Device");
+        assert_eq!(result.switch_state, 1);
+        assert_eq!(result.ports.len(), 1);
+        assert_eq!(result.ports[0].id, 1);
+    }
+
+    #[tokio::test]
+    async fn test_error_handling() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 1001,
+            "desc": "Device not found"
+        });
+
+        let _m = server.mock("GET", "/v1/oauth/resources/devices")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.get_device_list(None).await;
+
+        assert!(matches!(
+            result,
+            Err(TrimlightError::ApiError {
+                code: 1001,
+                message
+            }) if message == "Device not found"
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_auth_headers() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "total": 0,
+                "current": 0,
+                "data": []
+            }
+        });
+
+        let _m = server.mock("GET", "/v1/oauth/resources/devices")
+            .match_header("authorization", mockito::Matcher::Regex(r"^[A-Za-z0-9+/=]+$".to_string()))
+            .match_header("S-ClientId", "test_id")
+            .match_header("S-Timestamp", mockito::Matcher::Regex(r"^\d+$".to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.get_device_list(None).await;
+        assert!(result.is_ok());
     }
 }
