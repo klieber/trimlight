@@ -616,8 +616,14 @@ enum OverlayCommands {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Load environment variables from .env file
-    dotenv::dotenv().ok();
+    // Try loading environment variables from different locations
+    if dotenv::dotenv().is_err() {
+        // If .env in current directory fails, try home directory
+        if let Some(home) = dirs::home_dir() {
+            let home_env = home.join(".trimlight.env");
+            dotenv::from_path(home_env).ok();
+        }
+    }
 
     // Get API credentials from environment variables
     let client_id = env::var("TRIMLIGHT_CLIENT_ID")

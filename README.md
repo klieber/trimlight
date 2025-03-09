@@ -18,12 +18,34 @@ cargo install --path .
 
 ## Configuration
 
-The CLI requires API credentials to authenticate with the Trimlight service. Create a `.env` file in the project directory:
+The CLI requires API credentials to authenticate with the Trimlight service. There are several ways to provide these credentials:
 
+### Option 1: Environment Variables
+Set the following environment variables in your shell's configuration file (e.g., `~/.bashrc`, `~/.zshrc`):
+```bash
+export TRIMLIGHT_CLIENT_ID=your_client_id
+export TRIMLIGHT_CLIENT_SECRET=your_client_secret
+```
+After adding these lines, restart your terminal or run `source ~/.bashrc` (or `source ~/.zshrc`).
+
+### Option 2: Project-specific .env File
+If you're running the CLI from the project directory, you can create a `.env` file:
 ```env
 TRIMLIGHT_CLIENT_ID=your_client_id
 TRIMLIGHT_CLIENT_SECRET=your_client_secret
 ```
+
+### Option 3: User-specific .env File
+For a global installation, you can create a `.env` file in your home directory:
+```bash
+echo "TRIMLIGHT_CLIENT_ID=your_client_id" >> ~/.trimlight.env
+echo "TRIMLIGHT_CLIENT_SECRET=your_client_secret" >> ~/.trimlight.env
+```
+
+The CLI will check these locations in the following order:
+1. Environment variables
+2. `.env` file in the current directory
+3. `.trimlight.env` file in your home directory
 
 ## Usage
 

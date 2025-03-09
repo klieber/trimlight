@@ -21,3 +21,8 @@ thiserror = "1.0"
 chrono = "0.4"
 clap = { version = "4.5", features = ["derive"] }
 dotenv = "0.15"
+dirs = "5.0"
+
+[lib]
+name = "trimlight"
+path = "src/lib.rs"
