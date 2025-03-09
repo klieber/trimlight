@@ -1032,7 +1032,11 @@ fn parse_pixels(pixels_str: &str) -> Result<Vec<Pixel>, Box<dyn std::error::Erro
         .split(';')
         .enumerate()
         .map(|(index, pixel)| {
-            let rgb: Vec<u8> = pixel
+            // Split into RGB and optional parameters
+            let parts: Vec<&str> = pixel.split(':').collect();
+
+            // Parse RGB values
+            let rgb: Vec<u8> = parts[0]
                 .split(',')
                 .map(|v| v.trim().parse::<u8>())
                 .collect::<Result<Vec<u8>, _>>()?;
@@ -1041,11 +1045,29 @@ fn parse_pixels(pixels_str: &str) -> Result<Vec<Pixel>, Box<dyn std::error::Erro
                 return Err("Each pixel must have exactly 3 values (R,G,B)".into());
             }
 
+            // Parse count (default to 1 if not specified)
+            let count = if parts.len() > 1 {
+                parts[1].trim().parse::<i32>()?
+            } else {
+                1
+            };
+
+            // Parse disabled (default to false if not specified)
+            let disable = if parts.len() > 2 {
+                match parts[2].trim().parse::<i32>()? {
+                    0 => false,
+                    1 => true,
+                    _ => return Err("Disabled value must be 0 or 1".into()),
+                }
+            } else {
+                false
+            };
+
             Ok(Pixel {
                 index: index as i32,
-                count: 1,
+                count,
                 color: ((rgb[0] as i32) << 16) | ((rgb[1] as i32) << 8) | (rgb[2] as i32),
-                disable: false,
+                disable,
             })
         })
         .collect()
@@ -1265,6 +1287,9 @@ enum EffectCommands {
     # Preview a custom effect with pixel colors\n\
     trimlight-cli effects preview --custom 1 --pixels '255,0,0;0,255,0;0,0,255'\n\
     \n\
+    # Preview a custom effect with pixel counts and disabled flags\n\
+    trimlight-cli effects preview --custom 1 --pixels '255,0,0:5;0,255,0;0,0,0:2:1'\n\
+    \n\
     # Specify a particular device\n\
     trimlight-cli effects preview --device abc123 --built-in 1\n\
     \n\
@@ -1273,9 +1298,16 @@ enum EffectCommands {
     - Custom effects (modes 0-16): Support pixels option for custom colors\n\
     \n\
     Pixel Format:\n\
-    - Semicolon-separated list of RGB values: 'R,G,B;R,G,B;R,G,B'\n\
-    - Each RGB value is 0-255\n\
-    - Example: '255,0,0;0,255,0' creates a red pixel followed by a green pixel")]
+    - Basic format: 'R,G,B' where each value is 0-255\n\
+    - Extended format: 'R,G,B[:count][:disabled]'\n\
+      - count: Optional number of consecutive pixels (default: 1)\n\
+      - disabled: Optional flag (0=enabled, 1=disabled, default: 0)\n\
+    - Multiple pixels are separated by semicolons\n\
+    - Examples:\n\
+      - '255,0,0' - Single red pixel\n\
+      - '255,0,0:5' - 5 consecutive red pixels\n\
+      - '255,0,0:5:0' - 5 consecutive red pixels (enabled)\n\
+      - '0,0,0:2:1' - 2 consecutive black pixels (disabled)")]
     Preview {
         /// Device ID (optional, uses first device if not specified)
         #[arg(short, long)]
