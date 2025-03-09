@@ -154,13 +154,23 @@ These effects provide pixel-by-pixel control for creating custom animations:
 
 ## Effect Parameters
 
-All effects support the following parameters:
-
+### Common Parameters
+All effects (both built-in and custom) support these parameters:
 - `speed` (0-255): Animation speed
   - 0: Slowest
   - 255: Fastest
 - `brightness` (0-255): LED brightness
   - 0: Off
   - 255: Maximum brightness
+
+### Built-in Effect Parameters
+Built-in effects (modes 0-179) support these additional parameters:
 - `pixel_len` (1-90): Number of LEDs in the effect
 - `reverse` (boolean): Reverse the animation direction
+
+### Custom Effect Parameters
+Custom effects (modes 0-16) support this additional parameter:
+- `pixels` (array): Array of RGB values for pixel-by-pixel control
+  - Each element is an object with `r`, `g`, and `b` values (0-255)
+  - Array length must match the number of LEDs in your device
+  - Example: `[{"r":255,"g":0,"b":0}, {"r":0,"g":255,"b":0}]`
