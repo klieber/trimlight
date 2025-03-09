@@ -217,7 +217,7 @@ impl TrimlightClient {
     pub async fn preview_custom_effect(
         &self,
         device_id: &str,
-        mode: i32,
+        pattern: i32,
         speed: i32,
         brightness: i32,
         pixels: Option<Vec<Pixel>>,
@@ -226,7 +226,7 @@ impl TrimlightClient {
             "deviceId": device_id,
             "payload": {
                 "category": 2,  // 2 for custom effects
-                "mode": mode,
+                "mode": pattern,
                 "speed": speed,
                 "brightness": brightness,
                 "pixels": pixels
@@ -245,7 +245,7 @@ impl TrimlightClient {
         &self,
         device_id: &str,
         name: &str,
-        mode: i32,
+        pattern: i32,
         speed: i32,
         brightness: i32,
         pixel_len: Option<i32>,
@@ -257,7 +257,7 @@ impl TrimlightClient {
             "payload": {
                 "name": name,
                 "category": 2,  // 2 for custom effects
-                "mode": mode,
+                "mode": pattern,
                 "speed": speed,
                 "brightness": brightness,
                 "pixelLen": pixel_len,
@@ -288,35 +288,25 @@ impl TrimlightClient {
         device_id: &str,
         effect_id: i32,
         name: Option<&str>,
-        mode: Option<i32>,
+        pattern: Option<i32>,
         speed: Option<i32>,
         brightness: Option<i32>,
         pixel_len: Option<i32>,
         reverse: Option<bool>,
         pixels: Option<Vec<Pixel>>,
     ) -> Result<ApiResponse<serde_json::Value>, TrimlightError> {
-        let details = self.get_device_details(device_id).await?;
-        let current_effect = details
-            .effects
-            .iter()
-            .find(|e| e.id == effect_id)
-            .ok_or_else(|| TrimlightError::ApiError {
-                code: 404,
-                message: format!("Effect {} not found", effect_id),
-        })?;
-
         let body = serde_json::json!({
             "deviceId": device_id,
             "payload": {
                 "id": effect_id,
-                "name": name.unwrap_or(&current_effect.name),
-                "category": current_effect.category,
-                "mode": mode.unwrap_or(current_effect.mode),
-                "speed": speed.unwrap_or(current_effect.speed),
-                "brightness": brightness.unwrap_or(current_effect.brightness),
-                "pixelLen": pixel_len.or(current_effect.pixel_len),
-                "reverse": reverse.or(current_effect.reverse),
-                "pixels": pixels.or_else(|| current_effect.pixels.clone())
+                "category": 2,  // 2 for custom effects
+                "name": name,
+                "mode": pattern,
+                "speed": speed,
+                "brightness": brightness,
+                "pixelLen": pixel_len,
+                "reverse": reverse,
+                "pixels": pixels
             }
         });
 
@@ -1044,12 +1034,12 @@ mod tests {
             .add_effect(
                 "test123",
                 "Test Effect",
-                1,
-                5,
-                100,
-                Some(50),
-                Some(true),
-                None,
+                1,  // pattern
+                5,  // speed
+                100,  // brightness
+                Some(50),  // pixel_len
+                Some(true),  // reverse
+                None,  // pixels
             )
             .await
             .unwrap();
@@ -1062,34 +1052,6 @@ mod tests {
     async fn test_update_effect() {
         let mut server = Server::new_async().await;
 
-        // Mock for get_device_details
-        let details_response = serde_json::json!({
-            "code": 0,
-            "desc": "Success",
-            "payload": {
-                "effects": [{
-                    "id": 1,
-                    "name": "Original Effect",
-                    "category": 2,
-                    "mode": 1,
-                    "speed": 5,
-                    "brightness": 100,
-                    "pixelLen": 50,
-                    "reverse": false,
-                    "pixels": null
-                }]
-            }
-        });
-
-        let _m1 = server
-            .mock("POST", "/v1/oauth/resources/device/get")
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(details_response.to_string())
-            .expect(1)
-            .create_async()
-            .await;
-
         // Mock for update_effect
         let update_response = serde_json::json!({
             "code": 0,
@@ -1100,12 +1062,15 @@ mod tests {
             }
         });
 
-        let _m2 = server
+        let _m = server
             .mock("POST", "/v1/oauth/resources/device/effect/save")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"id":1,"category":2,"name":"Updated Effect","mode":2,"speed":null,"brightness":null,"pixelLen":null,"reverse":null,"pixels":null}}"#.to_string()))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(update_response.to_string())
-            .expect(1)
             .create_async()
             .await;
 
@@ -1115,7 +1080,7 @@ mod tests {
                 "test123",
                 1,
                 Some("Updated Effect"),
-                Some(2),
+                Some(2),  // pattern
                 None,
                 None,
                 None,
@@ -1657,7 +1622,7 @@ mod tests {
             .match_header("authorization", mockito::Matcher::Any)
             .match_header("S-ClientId", mockito::Matcher::Any)
             .match_header("S-Timestamp", mockito::Matcher::Any)
-            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"category":2,"mode":1,"speed":5,"brightness":100,"pixelLen":50,"pixels":[{"index":0,"count":1,"color":16711680,"disable":false},{"index":1,"count":1,"color":65280,"disable":false},{"index":2,"count":1,"color":255,"disable":false}]}}"#.to_string()))
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"category":2,"mode":1,"speed":5,"brightness":100,"pixels":[{"index":0,"count":1,"color":16711680,"disable":false},{"index":1,"count":1,"color":65280,"disable":false},{"index":2,"count":1,"color":255,"disable":false}]}}"#.to_string()))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(mock_response.to_string())

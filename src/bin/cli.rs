@@ -1256,12 +1256,12 @@ enum EffectCommands {
     # List only built-in modes\n\
     trimlight-cli effects modes --built-in\n\
     \n\
-    # List only custom modes\n\
-    trimlight-cli effects modes --custom\n\
+    # List only patterns\n\
+    trimlight-cli effects modes --pattern\n\
     \n\
     Categories:\n\
     - Built-in effects (modes 0-179)\n\
-    - Custom effects for pixel-by-pixel control (modes 0-16)")]
+    - Custom patterns for pixel-by-pixel control (patterns 0-16)")]
     Modes {
         /// Search for modes containing this text (case-insensitive)
         #[arg(short, long)]
@@ -1269,9 +1269,9 @@ enum EffectCommands {
         /// Show only built-in effects
         #[arg(long)]
         built_in: bool,
-        /// Show only custom effects
+        /// Show only custom patterns
         #[arg(long)]
-        custom: bool,
+        pattern: bool,
     },
     /// Preview a built-in or custom effect
     #[command(after_help = "Examples:\n\
@@ -1281,21 +1281,21 @@ enum EffectCommands {
     # Preview a built-in effect with pixel length and reverse options\n\
     trimlight-cli effects preview --built-in 1 --pixel-len 45 --reverse\n\
     \n\
-    # Preview a custom effect\n\
-    trimlight-cli effects preview --custom 1 --speed 150 --brightness 200\n\
+    # Preview a custom pattern\n\
+    trimlight-cli effects preview --pattern 1 --speed 150 --brightness 200\n\
     \n\
-    # Preview a custom effect with pixel colors\n\
-    trimlight-cli effects preview --custom 1 --pixels '255,0,0;0,255,0;0,0,255'\n\
+    # Preview a custom pattern with pixel colors\n\
+    trimlight-cli effects preview --pattern 1 --pixels '255,0,0;0,255,0;0,0,255'\n\
     \n\
-    # Preview a custom effect with pixel counts and disabled flags\n\
-    trimlight-cli effects preview --custom 1 --pixels '255,0,0:5;0,255,0;0,0,0:2:1'\n\
+    # Preview a custom pattern with pixel counts and disabled flags\n\
+    trimlight-cli effects preview --pattern 1 --pixels '255,0,0:5;0,255,0;0,0,0:2:1'\n\
     \n\
     # Specify a particular device\n\
     trimlight-cli effects preview --device abc123 --built-in 1\n\
     \n\
     Effect Types:\n\
     - Built-in effects (modes 0-179): Support pixel_len and reverse options\n\
-    - Custom effects (modes 0-16): Support pixels option for custom colors\n\
+    - Custom patterns (patterns 0-16): Support pixels option for custom colors\n\
     \n\
     Pixel Format:\n\
     - Basic format: 'R,G,B' where each value is 0-255\n\
@@ -1313,11 +1313,11 @@ enum EffectCommands {
         #[arg(short, long)]
         device: Option<String>,
         /// Built-in effect mode number (0-179)
-        #[arg(long, conflicts_with = "custom")]
+        #[arg(long, conflicts_with = "pattern")]
         built_in: Option<i32>,
-        /// Custom effect mode number (0-16)
+        /// Custom pattern number (0-16)
         #[arg(long, conflicts_with = "built_in")]
-        custom: Option<i32>,
+        pattern: Option<i32>,
         /// Effect animation speed (0=slowest, 255=fastest)
         #[arg(short = 's', long, default_value = "100")]
         speed: i32,
@@ -1330,8 +1330,8 @@ enum EffectCommands {
         /// Reverse the effect animation direction (built-in effects only)
         #[arg(short, long, requires = "built_in")]
         reverse: bool,
-        /// JSON array of pixel colors for custom effects (custom effects only)
-        #[arg(long, requires = "custom", required_if_eq("custom", "Some(0)"))]
+        /// JSON array of pixel colors for custom patterns (patterns only)
+        #[arg(long, requires = "pattern", required_if_eq("pattern", "Some(0)"))]
         pixels: Option<String>,
     },
     /// Add a new custom effect
@@ -1342,9 +1342,9 @@ enum EffectCommands {
         /// Effect name
         #[arg(short, long)]
         name: String,
-        /// Effect mode (0-16 for custom effects)
-        #[arg(short, long)]
-        mode: i32,
+        /// Pattern number (0-16 for custom patterns)
+        #[arg(long)]
+        pattern: i32,
         /// Effect speed (0-255)
         #[arg(short, long, default_value = "100")]
         speed: i32,
@@ -1372,9 +1372,9 @@ enum EffectCommands {
         /// New effect name
         #[arg(short, long)]
         name: Option<String>,
-        /// New effect mode (0-16 for custom effects)
-        #[arg(short, long)]
-        mode: Option<i32>,
+        /// New pattern number (0-16 for custom patterns)
+        #[arg(long)]
+        pattern: Option<i32>,
         /// New effect speed (0-255)
         #[arg(short, long)]
         speed: Option<i32>,
@@ -1943,14 +1943,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 EffectCommands::Modes {
                     search,
                     built_in,
-                    custom,
+                    pattern,
                 } => {
                     // Collect modes based on flags
                     let mut modes: Vec<&EffectMode> = Vec::new();
 
                     // If neither flag is set, show all modes
-                    let show_built_in = !custom || built_in;
-                    let show_custom = !built_in || custom;
+                    let show_built_in = !pattern || built_in;
+                    let show_custom = !built_in || pattern;
 
                     if show_built_in {
                         modes.extend(BUILT_IN_EFFECTS.iter());
@@ -2000,15 +2000,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 EffectCommands::Preview {
                     device,
                     built_in,
-                    custom,
+                    pattern,
                     speed,
                     brightness,
                     pixel_len,
                     reverse,
                     pixels,
                 } => {
-                    // Validate that either built_in or custom is specified
-                    let (mode, category) = match (built_in, custom) {
+                    // Validate that either built_in or pattern is specified
+                    let (mode, category) = match (built_in, pattern) {
                         (Some(mode), None) => {
                             if mode < 0 || mode > 179 {
                                 eprintln!("Invalid built-in mode. Must be between 0 and 179");
@@ -2018,13 +2018,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                         (None, Some(mode)) => {
                             if mode < 0 || mode > 16 {
-                                eprintln!("Invalid custom mode. Must be between 0 and 16");
+                                eprintln!("Invalid pattern number. Must be between 0 and 16");
                                 std::process::exit(1);
                             }
                             (mode, 1) // Category 1 for custom
                         }
                         _ => {
-                            eprintln!("Must specify either --built-in or --custom");
+                            eprintln!("Must specify either --built-in or --pattern");
                             std::process::exit(1);
                         }
                     };
@@ -2043,7 +2043,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         None => get_default_device(&client).await?,
                     };
 
-                    // Parse pixels if provided for custom effects
+                    // Parse pixels if provided for custom patterns
                     let parsed_pixels: Option<Vec<Pixel>> = if let Some(pixels_str) = pixels {
                         match parse_pixels(&pixels_str) {
                             Ok(pixels) => Some(pixels),
@@ -2073,9 +2073,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             )
                             .await?
                     } else {
-                        // Custom effect
+                        // Custom pattern
                         if parsed_pixels.is_none() {
-                            eprintln!("The --pixels parameter is required for custom effects");
+                            eprintln!("The --pixels parameter is required for custom patterns");
                             std::process::exit(1);
                         }
                         client
@@ -2102,7 +2102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 EffectCommands::Add {
                     device,
                     name,
-                    mode,
+                    pattern,
                     speed,
                     brightness,
                     pixel_len,
@@ -2131,7 +2131,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .add_effect(
                             &device_id,
                             &name,
-                            mode,
+                            pattern,
                             speed,
                             brightness,
                             pixel_len,
@@ -2161,7 +2161,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     device,
                     id,
                     name,
-                    mode,
+                    pattern,
                     speed,
                     brightness,
                     pixel_len,
@@ -2191,7 +2191,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             &device_id,
                             id,
                             name.as_deref(),
-                            mode,
+                            pattern,
                             speed,
                             brightness,
                             pixel_len,
