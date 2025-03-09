@@ -793,4 +793,580 @@ mod tests {
         let result = client.get_device_list(None).await;
         assert!(result.is_ok());
     }
+
+    #[tokio::test]
+    async fn test_preview_builtin_effect() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/preview")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"category":1,"mode":1,"speed":5,"brightness":100,"pixelLen":50,"reverse":false}}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.preview_builtin_effect("test123", 1, 5, 100, 50, false).await.unwrap();
+
+        assert_eq!(result.code, 0);
+        assert_eq!(result.desc, "Success");
+    }
+
+    #[tokio::test]
+    async fn test_add_effect() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/add")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"name":"Test Effect","category":2,"mode":1,"speed":5,"brightness":100,"pixelLen":50,"reverse":true,"pixels":null}}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.add_effect("test123", "Test Effect", 1, 5, 100, Some(50), Some(true), None)
+            .await
+            .unwrap();
+
+        assert_eq!(result.code, 0);
+        assert_eq!(result.desc, "Success");
+    }
+
+    #[tokio::test]
+    async fn test_update_effect() {
+        let mut server = Server::new_async().await;
+
+        // Mock for get_device_details
+        let details_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "effects": [{
+                    "id": 1,
+                    "name": "Original Effect",
+                    "category": 2,
+                    "mode": 1,
+                    "speed": 5,
+                    "brightness": 100,
+                    "pixelLen": 50,
+                    "reverse": false,
+                    "pixels": null
+                }]
+            }
+        });
+
+        let _m1 = server.mock("POST", "/v1/oauth/resources/device/get")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(details_response.to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        // Mock for update_effect
+        let update_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let _m2 = server.mock("POST", "/v1/oauth/resources/device/effect/update")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(update_response.to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.update_effect("test123", 1, Some("Updated Effect"), Some(2), None, None, None, None, None)
+            .await;
+
+        match result {
+            Ok(response) => {
+                assert_eq!(response.code, 0);
+                assert_eq!(response.desc, "Success");
+            },
+            Err(e) => panic!("Failed to update effect: {:?}", e),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_delete_effect() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/delete")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"id":1}}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.delete_effect("test123", 1).await.unwrap();
+
+        assert_eq!(result.code, 0);
+        assert_eq!(result.desc, "Success");
+    }
+
+    #[tokio::test]
+    async fn test_view_effect() {
+        let mut server = Server::new_async().await;
+
+        // Mock for get_device_details
+        let details_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "effects": [{
+                    "id": 1,
+                    "name": "Test Effect",
+                    "category": 2,
+                    "mode": 1,
+                    "speed": 5,
+                    "brightness": 100,
+                    "pixelLen": 50,
+                    "reverse": false,
+                    "pixels": null
+                }]
+            }
+        });
+
+        let _m1 = server.mock("POST", "/v1/oauth/resources/device/get")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(details_response.to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        // Mock for view_effect
+        let view_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let _m2 = server.mock("POST", "/v1/oauth/resources/device/effect/preview")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(view_response.to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.view_effect("test123", 1).await;
+
+        match result {
+            Ok(response) => {
+                assert_eq!(response.code, 0);
+                assert_eq!(response.desc, "Success");
+            },
+            Err(e) => panic!("Failed to view effect: {:?}", e),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_add_daily_schedule() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/schedule/daily/add")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"id":-1,"enable":true,"effectId":1,"repetition":1,"startTime":{"hours":8,"minutes":0},"endTime":{"hours":20,"minutes":0}}}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.add_daily_schedule("test123", 1, "08:00".to_string(), "20:00".to_string(), 1)
+            .await
+            .unwrap();
+
+        assert_eq!(result.code, 0);
+        assert_eq!(result.desc, "Success");
+    }
+
+    #[tokio::test]
+    async fn test_add_calendar_schedule() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/schedule/calendar/add")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"id":0,"effectId":1,"startDate":{"month":12,"day":25},"endDate":{"month":12,"day":31},"startTime":{"hours":17,"minutes":0},"endTime":{"hours":23,"minutes":0}}}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.add_calendar_schedule(
+            "test123",
+            1,
+            "12-25".to_string(),
+            "12-31".to_string(),
+            "17:00".to_string(),
+            "23:00".to_string()
+        ).await.unwrap();
+
+        assert_eq!(result.code, 0);
+        assert_eq!(result.desc, "Success");
+    }
+
+    #[tokio::test]
+    async fn test_delete_schedule() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/schedule/daily/delete")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"id":1}}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.delete_schedule("test123", 1, "daily").await.unwrap();
+
+        assert_eq!(result.code, 0);
+        assert_eq!(result.desc, "Success");
+    }
+
+    #[tokio::test]
+    async fn test_toggle_schedule() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/schedule/daily/update")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"id":1,"enable":true}}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.toggle_schedule("test123", 1, true).await.unwrap();
+
+        assert_eq!(result.code, 0);
+        assert_eq!(result.desc, "Success");
+    }
+
+    #[tokio::test]
+    async fn test_modify_schedule() {
+        let mut server = Server::new_async().await;
+
+        // Mock for get_device_schedules (which calls get_device_details)
+        let details_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "daily": [{
+                    "id": 1,
+                    "enable": true,
+                    "effectId": 1,
+                    "repetition": 1,
+                    "startTime": {
+                        "hours": 8,
+                        "minutes": 0
+                    },
+                    "endTime": {
+                        "hours": 20,
+                        "minutes": 0
+                    }
+                }],
+                "calendar": []
+            }
+        });
+
+        let _m1 = server.mock("POST", "/v1/oauth/resources/device/get")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(details_response.to_string())
+            .create_async()
+            .await;
+
+        // Mock for modify_schedule
+        let update_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let _m2 = server.mock("POST", "/v1/oauth/resources/device/schedule/daily/update")
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"id":1,"enable":true,"effectId":2,"startTime":{"hours":9,"minutes":0},"endTime":{"hours":21,"minutes":0},"repetition":1}}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(update_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.modify_schedule(
+            "test123",
+            1,
+            "daily",
+            Some(2),
+            Some("09:00".to_string()),
+            "21:00".to_string(),
+            None
+        ).await.unwrap();
+
+        assert_eq!(result.code, 0);
+        assert_eq!(result.desc, "Success");
+    }
+
+    #[tokio::test]
+    async fn test_check_schedule_conflicts() {
+        let mut server = Server::new_async().await;
+
+        // Mock for get_device_schedules (which calls get_device_details)
+        let details_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "daily": [
+                    {
+                        "id": 1,
+                        "enable": true,
+                        "effectId": 1,
+                        "repetition": 1,
+                        "startTime": { "hours": 8, "minutes": 0 },
+                        "endTime": { "hours": 12, "minutes": 0 }
+                    },
+                    {
+                        "id": 2,
+                        "enable": true,
+                        "effectId": 2,
+                        "repetition": 1,
+                        "startTime": { "hours": 10, "minutes": 0 },
+                        "endTime": { "hours": 14, "minutes": 0 }
+                    }
+                ],
+                "calendar": []
+            }
+        });
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/get")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(details_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.check_schedule_conflicts("test123").await.unwrap();
+
+        assert_eq!(result.code, 1);
+        assert!(result.desc.contains("Daily schedules 1 and 2 have overlapping times"));
+    }
+
+    #[tokio::test]
+    async fn test_set_combined_effect() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/combined/set")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"effectIds":[1,2,3],"interval":30}}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.set_combined_effect("test123", &[1, 2, 3], 30).await.unwrap();
+
+        assert_eq!(result.code, 0);
+        assert_eq!(result.desc, "Success");
+    }
+
+    #[tokio::test]
+    async fn test_clear_combined_effect() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/combined/set")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"effectIds":[],"interval":0}}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.clear_combined_effect("test123").await.unwrap();
+
+        assert_eq!(result.code, 0);
+        assert_eq!(result.desc, "Success");
+    }
+
+    #[tokio::test]
+    async fn test_add_overlay_effect() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/overlay")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"overlayEffects":[{"overlayType":1,"targetEffect":2}]}}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.add_overlay_effect("test123", 1, 2).await.unwrap();
+
+        assert_eq!(result.code, 0);
+        assert_eq!(result.desc, "Success");
+    }
+
+    #[tokio::test]
+    async fn test_clear_overlay_effects() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/overlay")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"overlayEffects":[]}}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client.clear_overlay_effects("test123").await.unwrap();
+
+        assert_eq!(result.code, 0);
+        assert_eq!(result.desc, "Success");
+    }
 }
