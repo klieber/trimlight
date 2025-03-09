@@ -101,6 +101,16 @@ let response = client.set_combined_effect(
 
 // Clear a combined effect sequence
 let response = client.clear_combined_effect("device_id").await?;
+
+// Add an overlay effect (lightning or snow)
+let response = client.add_overlay_effect(
+    "device_id",
+    0,            // Effect type (0=lightning, 1=snow)
+    1,            // Target effect ID
+).await?;
+
+// Clear all overlay effects
+let response = client.clear_overlay_effects("device_id").await?;
 ```
 
 ## Response Types
