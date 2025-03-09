@@ -97,7 +97,9 @@ impl TrimlightClient {
         }
 
         let response = req.send().await?;
-        let api_response: crate::models::ApiResponse<U> = response.json().await?;
+        let response_text = response.text().await?;
+        println!("Raw API Response: {}", response_text);
+        let api_response: crate::models::ApiResponse<U> = serde_json::from_str(&response_text)?;
 
         if api_response.code != 0 {
             return Err(TrimlightError::ApiError {
