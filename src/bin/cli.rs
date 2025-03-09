@@ -356,6 +356,9 @@ enum Commands {
     /// Manage combined effects (multiple effects running in sequence)
     #[command(subcommand)]
     Combined(CombinedCommands),
+    /// Manage saved effects
+    #[command(subcommand)]
+    Effects(EffectCommands),
 }
 
 #[derive(Subcommand)]
@@ -480,6 +483,76 @@ enum CombinedCommands {
         /// Device ID (optional, uses first device if not specified)
         #[arg(short, long)]
         device: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum EffectCommands {
+    /// List saved effects
+    List {
+        /// Device ID (optional, uses first device if not specified)
+        #[arg(short, long)]
+        device: Option<String>,
+    },
+    /// Add a new custom effect
+    Add {
+        /// Device ID (optional, uses first device if not specified)
+        #[arg(short, long)]
+        device: Option<String>,
+        /// Effect name
+        #[arg(short, long)]
+        name: String,
+        /// Effect mode (0-16 for custom effects)
+        #[arg(short, long)]
+        mode: i32,
+        /// Effect speed (0-255)
+        #[arg(short, long, default_value = "100")]
+        speed: i32,
+        /// LED brightness (0-255)
+        #[arg(short, long, default_value = "100")]
+        brightness: i32,
+        /// Number of LEDs to use (1-90)
+        #[arg(short, long)]
+        pixel_len: Option<i32>,
+        /// Reverse the effect direction
+        #[arg(short, long)]
+        reverse: bool,
+    },
+    /// Update an existing effect
+    Update {
+        /// Device ID (optional, uses first device if not specified)
+        #[arg(short, long)]
+        device: Option<String>,
+        /// Effect ID to update
+        #[arg(short, long)]
+        id: i32,
+        /// New effect name
+        #[arg(short, long)]
+        name: Option<String>,
+        /// New effect mode (0-16 for custom effects)
+        #[arg(short, long)]
+        mode: Option<i32>,
+        /// New effect speed (0-255)
+        #[arg(short, long)]
+        speed: Option<i32>,
+        /// New LED brightness (0-255)
+        #[arg(short, long)]
+        brightness: Option<i32>,
+        /// New number of LEDs to use (1-90)
+        #[arg(short, long)]
+        pixel_len: Option<i32>,
+        /// New reverse direction setting
+        #[arg(short, long)]
+        reverse: Option<bool>,
+    },
+    /// Delete an effect
+    Delete {
+        /// Device ID (optional, uses first device if not specified)
+        #[arg(short, long)]
+        device: Option<String>,
+        /// Effect ID to delete
+        #[arg(short, long)]
+        id: i32,
     },
 }
 
@@ -955,6 +1028,122 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     } else {
                         if response.code == 0 {
                             println!("Combined effect sequence cleared successfully");
+                        } else {
+                            println!("Error: {} (code: {})", response.desc, response.code);
+                        }
+                    }
+                }
+            }
+        }
+        Commands::Effects(effect_command) => {
+            match effect_command {
+                EffectCommands::List { device } => {
+                    let device_id = match device {
+                        Some(id) => id,
+                        None => get_default_device(&client).await?,
+                    };
+                    let details = client.get_device_details(&device_id).await?;
+                    if cli.json {
+                        let effects_json: Vec<serde_json::Value> = details.effects
+                            .iter()
+                            .map(|effect| serde_json::json!({
+                                "id": effect.id,
+                                "name": effect.name,
+                                "mode": effect.mode,
+                                "speed": effect.speed,
+                                "brightness": effect.brightness,
+                                "pixel_len": effect.pixel_len,
+                                "reverse": effect.reverse,
+                                "pixels": effect.pixels
+                            }))
+                            .collect();
+                        println!("{}", serde_json::to_string_pretty(&effects_json)?);
+                    } else {
+                        if details.effects.is_empty() {
+                            println!("No saved effects found");
+                        } else {
+                            println!("Saved Effects:");
+                            for effect in details.effects {
+                                println!("- Effect {} ({})", effect.id, effect.name);
+                                println!("  Mode: {}", effect.mode);
+                                println!("  Speed: {}", effect.speed);
+                                println!("  Brightness: {}", effect.brightness);
+                                if let Some(len) = effect.pixel_len {
+                                    println!("  Pixel Length: {}", len);
+                                }
+                                if let Some(rev) = effect.reverse {
+                                    println!("  Reverse: {}", rev);
+                                }
+                                if let Some(pixels) = effect.pixels {
+                                    println!("  Custom Pixels: {} defined", pixels.len());
+                                }
+                                println!();
+                            }
+                        }
+                    }
+                }
+                EffectCommands::Add { device, name, mode, speed, brightness, pixel_len, reverse } => {
+                    let device_id = match device {
+                        Some(id) => id,
+                        None => get_default_device(&client).await?,
+                    };
+                    let response = client.add_effect(
+                        &device_id,
+                        &name,
+                        mode,
+                        speed,
+                        brightness,
+                        pixel_len,
+                        Some(reverse),
+                        None, // No pixel data for now
+                    ).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&response)?);
+                    } else {
+                        if response.code == 0 {
+                            println!("Effect added successfully");
+                        } else {
+                            println!("Error: {} (code: {})", response.desc, response.code);
+                        }
+                    }
+                }
+                EffectCommands::Update { device, id, name, mode, speed, brightness, pixel_len, reverse } => {
+                    let device_id = match device {
+                        Some(id) => id,
+                        None => get_default_device(&client).await?,
+                    };
+                    let response = client.update_effect(
+                        &device_id,
+                        id,
+                        name.as_deref(),
+                        mode,
+                        speed,
+                        brightness,
+                        pixel_len,
+                        reverse,
+                        None, // No pixel data for now
+                    ).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&response)?);
+                    } else {
+                        if response.code == 0 {
+                            println!("Effect updated successfully");
+                        } else {
+                            println!("Error: {} (code: {})", response.desc, response.code);
+                        }
+                    }
+                }
+                EffectCommands::Delete { device, id } => {
+                    let device_id = match device {
+                        Some(id) => id,
+                        None => get_default_device(&client).await?,
+                    };
+                    let response = client.delete_effect(&device_id, id).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&response)?);
+                    } else {
+                        if response.code == 0 {
+                            println!("Effect deleted successfully");
                         } else {
                             println!("Error: {} (code: {})", response.desc, response.code);
                         }

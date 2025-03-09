@@ -106,7 +106,7 @@ pub struct Effect {
     pub pixels: Option<Vec<Pixel>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct Pixel {
     #[serde(default)]
     pub index: i32,
@@ -783,6 +783,103 @@ impl TrimlightClient {
         self.request(
             reqwest::Method::POST,
             "/v1/oauth/resources/device/effect/combined/set",
+            Some(&body),
+        ).await
+    }
+
+    /// Add a new custom effect
+    pub async fn add_effect(
+        &self,
+        device_id: &str,
+        name: &str,
+        mode: i32,
+        speed: i32,
+        brightness: i32,
+        pixel_len: Option<i32>,
+        reverse: Option<bool>,
+        pixels: Option<Vec<Pixel>>,
+    ) -> Result<BasicResponse, TrimlightError> {
+        let body = serde_json::json!({
+            "deviceId": device_id,
+            "payload": {
+                "name": name,
+                "category": 2,  // 2 for custom effects
+                "mode": mode,
+                "speed": speed,
+                "brightness": brightness,
+                "pixelLen": pixel_len,
+                "reverse": reverse,
+                "pixels": pixels
+            }
+        });
+
+        self.request(
+            reqwest::Method::POST,
+            "/v1/oauth/resources/device/effect/add",
+            Some(&body),
+        ).await
+    }
+
+    /// Update an existing effect
+    pub async fn update_effect(
+        &self,
+        device_id: &str,
+        effect_id: i32,
+        name: Option<&str>,
+        mode: Option<i32>,
+        speed: Option<i32>,
+        brightness: Option<i32>,
+        pixel_len: Option<i32>,
+        reverse: Option<bool>,
+        pixels: Option<Vec<Pixel>>,
+    ) -> Result<BasicResponse, TrimlightError> {
+        // Get current effect details
+        let details = self.get_device_details(device_id).await?;
+        let current_effect = details.effects.iter().find(|e| e.id == effect_id).ok_or_else(|| {
+            TrimlightError::ApiError {
+                code: 404,
+                message: format!("Effect {} not found", effect_id),
+            }
+        })?;
+
+        let body = serde_json::json!({
+            "deviceId": device_id,
+            "payload": {
+                "id": effect_id,
+                "name": name.unwrap_or(&current_effect.name),
+                "category": current_effect.category,
+                "mode": mode.unwrap_or(current_effect.mode),
+                "speed": speed.unwrap_or(current_effect.speed),
+                "brightness": brightness.unwrap_or(current_effect.brightness),
+                "pixelLen": pixel_len.or(current_effect.pixel_len),
+                "reverse": reverse.or(current_effect.reverse),
+                "pixels": pixels.or_else(|| current_effect.pixels.clone())
+            }
+        });
+
+        self.request(
+            reqwest::Method::POST,
+            "/v1/oauth/resources/device/effect/update",
+            Some(&body),
+        ).await
+    }
+
+    /// Delete an effect
+    pub async fn delete_effect(
+        &self,
+        device_id: &str,
+        effect_id: i32,
+    ) -> Result<BasicResponse, TrimlightError> {
+        let body = serde_json::json!({
+            "deviceId": device_id,
+            "payload": {
+                "id": effect_id
+            }
+        });
+
+        self.request(
+            reqwest::Method::POST,
+            "/v1/oauth/resources/device/effect/delete",
             Some(&body),
         ).await
     }
