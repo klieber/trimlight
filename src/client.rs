@@ -251,7 +251,7 @@ impl TrimlightClient {
         pixel_len: Option<i32>,
         reverse: Option<bool>,
         pixels: Option<Vec<Pixel>>,
-    ) -> Result<BasicResponse, TrimlightError> {
+    ) -> Result<ApiResponse<serde_json::Value>, TrimlightError> {
         let body = serde_json::json!({
             "deviceId": device_id,
             "payload": {
@@ -266,12 +266,21 @@ impl TrimlightClient {
             }
         });
 
-        self.request(
-            Method::POST,
-            "/v1/oauth/resources/device/effect/save",
-            Some(&body),
-        )
-        .await
+        let url = format!("{}{}", self.api_base_url, "/v1/oauth/resources/device/effect/save");
+        let mut req = self.client.request(Method::POST, &url);
+
+        // Add authentication headers
+        for (key, value) in self.generate_auth_headers() {
+            req = req.header(key.unwrap(), value);
+        }
+
+        req = req.json(&body);
+
+        let response = req.send().await?;
+        let response_text = response.text().await?;
+        let api_response: ApiResponse<serde_json::Value> = serde_json::from_str(&response_text)?;
+
+        Ok(api_response)
     }
 
     pub async fn update_effect(
@@ -285,7 +294,7 @@ impl TrimlightClient {
         pixel_len: Option<i32>,
         reverse: Option<bool>,
         pixels: Option<Vec<Pixel>>,
-    ) -> Result<BasicResponse, TrimlightError> {
+    ) -> Result<ApiResponse<serde_json::Value>, TrimlightError> {
         let details = self.get_device_details(device_id).await?;
         let current_effect = details
             .effects
@@ -311,12 +320,21 @@ impl TrimlightClient {
             }
         });
 
-        self.request(
-            Method::POST,
-            "/v1/oauth/resources/device/effect/save",
-            Some(&body),
-        )
-        .await
+        let url = format!("{}{}", self.api_base_url, "/v1/oauth/resources/device/effect/save");
+        let mut req = self.client.request(Method::POST, &url);
+
+        // Add authentication headers
+        for (key, value) in self.generate_auth_headers() {
+            req = req.header(key.unwrap(), value);
+        }
+
+        req = req.json(&body);
+
+        let response = req.send().await?;
+        let response_text = response.text().await?;
+        let api_response: ApiResponse<serde_json::Value> = serde_json::from_str(&response_text)?;
+
+        Ok(api_response)
     }
 
     pub async fn delete_effect(

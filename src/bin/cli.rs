@@ -2143,8 +2143,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         println!("{}", serde_json::to_string_pretty(&response)?);
                     } else {
                         if response.code == 0 {
-                            if let Some(id) = response.payload.and_then(|p| p.get("id")).and_then(|id| id.as_i64()) {
-                                println!("Effect added successfully (id={})", id);
+                            if let Some(payload) = response.payload {
+                                if let Some(id) = payload.get("id").and_then(|id| id.as_i64()) {
+                                    println!("Effect added successfully (id={})", id);
+                                } else {
+                                    println!("Effect added successfully");
+                                }
                             } else {
                                 println!("Effect added successfully");
                             }
