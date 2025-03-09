@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use std::env;
-use trimlight::{TrimlightClient, Pixel};
+use trimlight::{Pixel, TrimlightClient};
 
 #[derive(Parser)]
 #[command(name = "trimlight")]
@@ -1055,8 +1055,8 @@ fn parse_pixels(pixels_str: &str) -> Result<Vec<Pixel>, Box<dyn std::error::Erro
             // Parse disabled (default to false if not specified)
             let disable = if parts.len() > 2 {
                 match parts[2].trim().parse::<i32>()? {
-                    0 => false,  // 0 means enabled (disable=false)
-                    1 => true,   // 1 means disabled (disable=true)
+                    0 => false, // 0 means enabled (disable=false)
+                    1 => true,  // 1 means disabled (disable=true)
                     _ => return Err("Disabled value must be 0 or 1".into()),
                 }
             } else {
@@ -2064,12 +2064,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                         client
                             .preview_builtin_effect(
-                                &device_id,
-                                mode,
-                                speed,
-                                brightness,
-                                pixel_len,
-                                reverse,
+                                &device_id, mode, speed, brightness, pixel_len, reverse,
                             )
                             .await?
                     } else {

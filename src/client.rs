@@ -266,7 +266,10 @@ impl TrimlightClient {
             }
         });
 
-        let url = format!("{}{}", self.api_base_url, "/v1/oauth/resources/device/effect/save");
+        let url = format!(
+            "{}{}",
+            self.api_base_url, "/v1/oauth/resources/device/effect/save"
+        );
         let mut req = self.client.request(Method::POST, &url);
 
         // Add authentication headers
@@ -310,7 +313,10 @@ impl TrimlightClient {
             }
         });
 
-        let url = format!("{}{}", self.api_base_url, "/v1/oauth/resources/device/effect/save");
+        let url = format!(
+            "{}{}",
+            self.api_base_url, "/v1/oauth/resources/device/effect/save"
+        );
         let mut req = self.client.request(Method::POST, &url);
 
         // Add authentication headers
@@ -360,7 +366,7 @@ impl TrimlightClient {
             .ok_or_else(|| TrimlightError::ApiError {
                 code: 404,
                 message: format!("Effect {} not found", effect_id),
-        })?;
+            })?;
 
         let body = serde_json::json!({
             "deviceId": device_id,
@@ -489,8 +495,8 @@ impl TrimlightClient {
             "calendar" => "/v1/oauth/resources/device/schedule/calendar/delete",
             _ => {
                 return Err(TrimlightError::ApiError {
-                code: 400,
-                message: "Invalid schedule type. Must be 'daily' or 'calendar'".to_string(),
+                    code: 400,
+                    message: "Invalid schedule type. Must be 'daily' or 'calendar'".to_string(),
                 })
             }
         };
@@ -542,8 +548,8 @@ impl TrimlightClient {
             "calendar" => "/v1/oauth/resources/device/schedule/calendar/update",
             _ => {
                 return Err(TrimlightError::ApiError {
-                code: 400,
-                message: "Invalid schedule type. Must be 'daily' or 'calendar'".to_string(),
+                    code: 400,
+                    message: "Invalid schedule type. Must be 'daily' or 'calendar'".to_string(),
                 })
             }
         };
@@ -1034,12 +1040,12 @@ mod tests {
             .add_effect(
                 "test123",
                 "Test Effect",
-                1,  // pattern
-                5,  // speed
-                100,  // brightness
-                Some(50),  // pixel_len
-                Some(true),  // reverse
-                None,  // pixels
+                1,          // pattern
+                5,          // speed
+                100,        // brightness
+                Some(50),   // pixel_len
+                Some(true), // reverse
+                None,       // pixels
             )
             .await
             .unwrap();
@@ -1080,7 +1086,7 @@ mod tests {
                 "test123",
                 1,
                 Some("Updated Effect"),
-                Some(2),  // pattern
+                Some(2), // pattern
                 None,
                 None,
                 None,
@@ -1601,19 +1607,19 @@ mod tests {
             Pixel {
                 index: 0,
                 count: 1,
-                color: 0xFF0000,  // Red
+                color: 0xFF0000, // Red
                 disable: false,
             },
             Pixel {
                 index: 1,
                 count: 1,
-                color: 0x00FF00,  // Green
+                color: 0x00FF00, // Green
                 disable: false,
             },
             Pixel {
                 index: 2,
                 count: 1,
-                color: 0x0000FF,  // Blue
+                color: 0x0000FF, // Blue
                 disable: false,
             },
         ];
