@@ -350,6 +350,112 @@ enum Commands {
         #[arg(long)]
         custom: bool,
     },
+    /// Manage schedules
+    #[command(subcommand)]
+    Schedule(ScheduleCommands),
+}
+
+#[derive(Subcommand)]
+enum ScheduleCommands {
+    /// List all schedules
+    List {
+        /// Device ID (optional, uses first device if not specified)
+        #[arg(short, long)]
+        device: Option<String>,
+    },
+    /// Add a daily schedule
+    Daily {
+        /// Device ID (optional, uses first device if not specified)
+        #[arg(short, long)]
+        device: Option<String>,
+        /// Effect ID to display
+        #[arg(short, long)]
+        effect: i32,
+        /// Start time (HH:MM format)
+        #[arg(long)]
+        start: String,
+        /// End time (HH:MM format)
+        #[arg(long)]
+        end: String,
+        /// Repetition type (0=today, 1=everyday, 2=weekdays, 3=weekend)
+        #[arg(short, long)]
+        repeat: i32,
+    },
+    /// Add a calendar schedule
+    Calendar {
+        /// Device ID (optional, uses first device if not specified)
+        #[arg(short, long)]
+        device: Option<String>,
+        /// Effect ID to display
+        #[arg(short, long)]
+        effect: i32,
+        /// Start date (MM-DD format)
+        #[arg(long)]
+        start_date: String,
+        /// End date (MM-DD format)
+        #[arg(long)]
+        end_date: String,
+        /// Start time (HH:MM format)
+        #[arg(long)]
+        start_time: String,
+        /// End time (HH:MM format)
+        #[arg(long)]
+        end_time: String,
+    },
+    /// Delete a schedule
+    Delete {
+        /// Device ID (optional, uses first device if not specified)
+        #[arg(short, long)]
+        device: Option<String>,
+        /// Schedule ID to delete
+        #[arg(short, long)]
+        id: i32,
+        /// Schedule type (daily or calendar)
+        #[arg(short, long)]
+        schedule_type: String,
+    },
+    /// Enable or disable a daily schedule
+    Toggle {
+        /// Device ID (optional, uses first device if not specified)
+        #[arg(short, long)]
+        device: Option<String>,
+        /// Schedule ID to toggle
+        #[arg(short, long)]
+        id: i32,
+        /// Enable the schedule (if not specified, will disable)
+        #[arg(long)]
+        enable: bool,
+    },
+    /// Modify an existing daily schedule
+    Modify {
+        /// Device ID (optional, uses first device if not specified)
+        #[arg(short, long)]
+        device: Option<String>,
+        /// Schedule ID to modify
+        #[arg(short, long)]
+        id: i32,
+        /// Schedule type (daily or calendar)
+        #[arg(short, long)]
+        schedule_type: String,
+        /// Effect ID to display (optional)
+        #[arg(short, long)]
+        effect: Option<i32>,
+        /// Start time (HH:MM format, optional)
+        #[arg(long)]
+        start: Option<String>,
+        /// End time (HH:MM format, optional)
+        #[arg(long)]
+        end: String,
+        /// Repetition type (0=today, 1=everyday, 2=weekdays, 3=weekend, optional)
+        #[arg(short, long)]
+        repeat: Option<i32>,
+    },
+    /// Check for schedule conflicts
+    Check {
+        /// Device ID (optional, uses first device if not specified)
+        #[arg(short, long)]
+        device: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -625,6 +731,154 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                     println!("  {:3} - {}", mode.id, mode.name);
+                }
+            }
+        }
+        Commands::Schedule(schedule_command) => {
+            match schedule_command {
+                ScheduleCommands::List { device } => {
+                    let device_id = match device {
+                        Some(id) => id,
+                        None => get_default_device(&client).await?,
+                    };
+                    let schedules = client.get_device_schedules(&device_id).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&schedules)?);
+                    } else {
+                        println!("Daily Schedules:");
+                        for schedule in &schedules.daily {
+                            println!("- Schedule {}: Effect {} from {:02}:{:02} to {:02}:{:02}",
+                                schedule.id,
+                                schedule.effect_id,
+                                schedule.start_time.hours,
+                                schedule.start_time.minutes,
+                                schedule.end_time.hours,
+                                schedule.end_time.minutes
+                            );
+                            println!("  Repetition: {}", match schedule.repetition {
+                                0 => "Today Only",
+                                1 => "Everyday",
+                                2 => "Week Days",
+                                3 => "Weekend",
+                                _ => "Unknown",
+                            });
+                            println!("  Status: {}", if schedule.enable { "Enabled" } else { "Disabled" });
+                        }
+
+                        println!("\nCalendar Schedules:");
+                        for schedule in &schedules.calendar {
+                            println!("- Schedule {}: Effect {} from {}-{} to {}-{}",
+                                schedule.id,
+                                schedule.effect_id,
+                                schedule.start_date.month,
+                                schedule.start_date.day,
+                                schedule.end_date.month,
+                                schedule.end_date.day
+                            );
+                            println!("  Time: {:02}:{:02} to {:02}:{:02}",
+                                schedule.start_time.hours,
+                                schedule.start_time.minutes,
+                                schedule.end_time.hours,
+                                schedule.end_time.minutes
+                            );
+                        }
+                    }
+                }
+                ScheduleCommands::Daily { device, effect, start, end, repeat } => {
+                    let device_id = match device {
+                        Some(id) => id,
+                        None => get_default_device(&client).await?,
+                    };
+                    let response = client.add_daily_schedule(&device_id, effect, start, end, repeat).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&response)?);
+                    } else {
+                        if response.code == 0 {
+                            println!("Daily schedule added successfully");
+                        } else {
+                            println!("Error: {} (code: {})", response.desc, response.code);
+                        }
+                    }
+                }
+                ScheduleCommands::Calendar { device, effect, start_date, end_date, start_time, end_time } => {
+                    let device_id = match device {
+                        Some(id) => id,
+                        None => get_default_device(&client).await?,
+                    };
+                    let response = client.add_calendar_schedule(&device_id, effect, start_date, end_date, start_time, end_time).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&response)?);
+                    } else {
+                        if response.code == 0 {
+                            println!("Calendar schedule added successfully");
+                        } else {
+                            println!("Error: {} (code: {})", response.desc, response.code);
+                        }
+                    }
+                }
+                ScheduleCommands::Delete { device, id, schedule_type } => {
+                    let device_id = match device {
+                        Some(id) => id,
+                        None => get_default_device(&client).await?,
+                    };
+                    let response = client.delete_schedule(&device_id, id, &schedule_type).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&response)?);
+                    } else {
+                        if response.code == 0 {
+                            println!("Schedule deleted successfully");
+                        } else {
+                            println!("Error: {} (code: {})", response.desc, response.code);
+                        }
+                    }
+                }
+                ScheduleCommands::Toggle { device, id, enable } => {
+                    let device_id = match device {
+                        Some(id) => id,
+                        None => get_default_device(&client).await?,
+                    };
+                    let response = client.toggle_schedule(&device_id, id, enable).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&response)?);
+                    } else {
+                        if response.code == 0 {
+                            println!("Schedule toggled successfully");
+                        } else {
+                            println!("Error: {} (code: {})", response.desc, response.code);
+                        }
+                    }
+                }
+                ScheduleCommands::Modify { device, id, schedule_type, effect, start, end, repeat } => {
+                    let device_id = match device {
+                        Some(id) => id,
+                        None => get_default_device(&client).await?,
+                    };
+                    let response = client.modify_schedule(&device_id, id, &schedule_type, effect, start, end, repeat).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&response)?);
+                    } else {
+                        if response.code == 0 {
+                            println!("Schedule modified successfully");
+                        } else {
+                            println!("Error: {} (code: {})", response.desc, response.code);
+                        }
+                    }
+                }
+                ScheduleCommands::Check { device } => {
+                    let device_id = match device {
+                        Some(id) => id,
+                        None => get_default_device(&client).await?,
+                    };
+                    let response = client.check_schedule_conflicts(&device_id).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&response)?);
+                    } else {
+                        if response.code == 0 {
+                            println!("No schedule conflicts found");
+                        } else {
+                            println!("Error: {} (code: {})", response.desc, response.code);
+                        }
+                    }
                 }
             }
         }

@@ -35,9 +35,11 @@ pub struct ApiResponse<T> {
     payload: Option<T>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct BasicResponse {
+    #[serde(default)]
     pub code: i32,
+    #[serde(default)]
     pub desc: String,
 }
 
@@ -188,6 +190,14 @@ pub struct CalendarSchedule {
     #[serde(default)]
     #[serde(rename = "endTime")]
     pub end_time: ScheduleTime,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DeviceSchedules {
+    #[serde(default)]
+    pub daily: Vec<DailySchedule>,
+    #[serde(default)]
+    pub calendar: Vec<CalendarSchedule>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -434,4 +444,364 @@ impl TrimlightClient {
             Some(&body),
         ).await
     }
+
+    /// Get device schedules
+    pub async fn get_device_schedules(&self, device_id: &str) -> Result<DeviceSchedules, TrimlightError> {
+        let details = self.get_device_details(device_id).await?;
+        Ok(DeviceSchedules {
+            daily: details.daily,
+            calendar: details.calendar,
+        })
+    }
+
+    /// Add a daily schedule
+    pub async fn add_daily_schedule(
+        &self,
+        device_id: &str,
+        effect_id: i32,
+        start: String,
+        end: String,
+        repetition: i32,
+    ) -> Result<BasicResponse, TrimlightError> {
+        // Parse start time
+        let (start_hours, start_minutes) = parse_time(&start)?;
+        // Parse end time
+        let (end_hours, end_minutes) = parse_time(&end)?;
+
+        let body = serde_json::json!({
+            "deviceId": device_id,
+            "payload": {
+                "id": -1,  // Server will assign the actual ID
+                "enable": true,
+                "effectId": effect_id,
+                "repetition": repetition,
+                "startTime": {
+                    "hours": start_hours,
+                    "minutes": start_minutes
+                },
+                "endTime": {
+                    "hours": end_hours,
+                    "minutes": end_minutes
+                }
+            }
+        });
+
+        self.request(
+            reqwest::Method::POST,
+            "/v1/oauth/resources/device/schedule/daily/add",
+            Some(&body),
+        ).await
+    }
+
+    /// Add a calendar schedule
+    pub async fn add_calendar_schedule(
+        &self,
+        device_id: &str,
+        effect_id: i32,
+        start_date: String,
+        end_date: String,
+        start_time: String,
+        end_time: String,
+    ) -> Result<BasicResponse, TrimlightError> {
+        // Parse dates
+        let (start_month, start_day) = parse_date(&start_date)?;
+        let (end_month, end_day) = parse_date(&end_date)?;
+        // Parse times
+        let (start_hours, start_minutes) = parse_time(&start_time)?;
+        let (end_hours, end_minutes) = parse_time(&end_time)?;
+
+        let body = serde_json::json!({
+            "deviceId": device_id,
+            "payload": {
+                "id": 0,
+                "effectId": effect_id,
+                "startDate": {
+                    "month": start_month,
+                    "day": start_day
+                },
+                "endDate": {
+                    "month": end_month,
+                    "day": end_day
+                },
+                "startTime": {
+                    "hours": start_hours,
+                    "minutes": start_minutes
+                },
+                "endTime": {
+                    "hours": end_hours,
+                    "minutes": end_minutes
+                }
+            }
+        });
+
+        self.request(
+            reqwest::Method::POST,
+            "/v1/oauth/resources/device/schedule/calendar/add",
+            Some(&body),
+        ).await
+    }
+
+    /// Delete a schedule
+    pub async fn delete_schedule(
+        &self,
+        device_id: &str,
+        schedule_id: i32,
+        schedule_type: &str,
+    ) -> Result<BasicResponse, TrimlightError> {
+        let endpoint = match schedule_type.to_lowercase().as_str() {
+            "daily" => "/v1/oauth/resources/device/schedule/daily/delete",
+            "calendar" => "/v1/oauth/resources/device/schedule/calendar/delete",
+            _ => return Err(TrimlightError::ApiError {
+                code: 400,
+                message: "Invalid schedule type. Must be 'daily' or 'calendar'".to_string(),
+            }),
+        };
+
+        let body = serde_json::json!({
+            "deviceId": device_id,
+            "payload": {
+                "id": schedule_id
+            }
+        });
+
+        self.request(reqwest::Method::POST, endpoint, Some(&body)).await
+    }
+
+    /// Toggle a daily schedule on/off
+    pub async fn toggle_schedule(
+        &self,
+        device_id: &str,
+        schedule_id: i32,
+        enable: bool,
+    ) -> Result<BasicResponse, TrimlightError> {
+        let body = serde_json::json!({
+            "deviceId": device_id,
+            "payload": {
+                "id": schedule_id,
+                "enable": enable
+            }
+        });
+
+        self.request(
+            reqwest::Method::POST,
+            "/v1/oauth/resources/device/schedule/daily/update",
+            Some(&body),
+        ).await
+    }
+
+    /// Modify an existing schedule
+    pub async fn modify_schedule(
+        &self,
+        device_id: &str,
+        schedule_id: i32,
+        schedule_type: &str,
+        effect_id: Option<i32>,
+        start: Option<String>,
+        end: String,
+        repetition: Option<i32>,
+    ) -> Result<BasicResponse, TrimlightError> {
+        let endpoint = match schedule_type.to_lowercase().as_str() {
+            "daily" => "/v1/oauth/resources/device/schedule/daily/update",
+            "calendar" => "/v1/oauth/resources/device/schedule/calendar/update",
+            _ => return Err(TrimlightError::ApiError {
+                code: 400,
+                message: "Invalid schedule type. Must be 'daily' or 'calendar'".to_string(),
+            }),
+        };
+
+        // Get current schedule details
+        let schedules = self.get_device_schedules(device_id).await?;
+        let schedule = if schedule_type == "daily" {
+            schedules.daily.iter().find(|s| s.id == schedule_id)
+        } else {
+            None
+        };
+
+        let schedule = schedule.ok_or_else(|| TrimlightError::ApiError {
+            code: 404,
+            message: format!("Schedule {} not found", schedule_id),
+        })?;
+
+        // Parse times if provided
+        let (start_hours, start_minutes) = if let Some(start_time) = start {
+            parse_time(&start_time)?
+        } else {
+            (schedule.start_time.hours, schedule.start_time.minutes)
+        };
+        let (end_hours, end_minutes) = parse_time(&end)?;
+
+        let mut payload = serde_json::json!({
+            "id": schedule_id,
+            "enable": schedule.enable,
+            "effectId": effect_id.unwrap_or(schedule.effect_id),
+            "startTime": {
+                "hours": start_hours,
+                "minutes": start_minutes
+            },
+            "endTime": {
+                "hours": end_hours,
+                "minutes": end_minutes
+            }
+        });
+
+        if schedule_type == "daily" {
+            if let Some(rep) = repetition {
+                payload["repetition"] = serde_json::json!(rep);
+            } else {
+                payload["repetition"] = serde_json::json!(schedule.repetition);
+            }
+        }
+
+        let body = serde_json::json!({
+            "deviceId": device_id,
+            "payload": payload
+        });
+
+        self.request(reqwest::Method::POST, endpoint, Some(&body)).await
+    }
+
+    /// Check for schedule conflicts
+    pub async fn check_schedule_conflicts(&self, device_id: &str) -> Result<BasicResponse, TrimlightError> {
+        let schedules = self.get_device_schedules(device_id).await?;
+        let mut conflicts = Vec::new();
+
+        // Check daily schedule conflicts
+        for (i, schedule1) in schedules.daily.iter().enumerate() {
+            if !schedule1.enable {
+                continue;
+            }
+
+            for schedule2 in schedules.daily.iter().skip(i + 1) {
+                if !schedule2.enable {
+                    continue;
+                }
+
+                // Check if schedules have overlapping repetition patterns
+                let overlapping_days = match (schedule1.repetition, schedule2.repetition) {
+                    (0, _) | (_, 0) => false, // Today only doesn't conflict
+                    (1, _) | (_, 1) => true,  // Everyday conflicts with everything
+                    (2, 2) => true,  // Weekdays overlap with weekdays
+                    (3, 3) => true,  // Weekend overlaps with weekend
+                    (2, 3) | (3, 2) => false, // Weekdays don't overlap with weekend
+                    _ => false,
+                };
+
+                if overlapping_days {
+                    // Check time overlap
+                    let start1 = schedule1.start_time.hours * 60 + schedule1.start_time.minutes;
+                    let end1 = schedule1.end_time.hours * 60 + schedule1.end_time.minutes;
+                    let start2 = schedule2.start_time.hours * 60 + schedule2.start_time.minutes;
+                    let end2 = schedule2.end_time.hours * 60 + schedule2.end_time.minutes;
+
+                    if (start1 <= end2 && end1 >= start2) || (start2 <= end1 && end2 >= start1) {
+                        conflicts.push(format!(
+                            "Daily schedules {} and {} have overlapping times",
+                            schedule1.id,
+                            schedule2.id
+                        ));
+                    }
+                }
+            }
+        }
+
+        // Check calendar schedule conflicts
+        for (i, schedule1) in schedules.calendar.iter().enumerate() {
+            for schedule2 in schedules.calendar.iter().skip(i + 1) {
+                // Check date overlap
+                let start1 = schedule1.start_date.month * 31 + schedule1.start_date.day;
+                let end1 = schedule1.end_date.month * 31 + schedule1.end_date.day;
+                let start2 = schedule2.start_date.month * 31 + schedule2.start_date.day;
+                let end2 = schedule2.end_date.month * 31 + schedule2.end_date.day;
+
+                if (start1 <= end2 && end1 >= start2) || (start2 <= end1 && end2 >= start1) {
+                    // Check time overlap
+                    let time_start1 = schedule1.start_time.hours * 60 + schedule1.start_time.minutes;
+                    let time_end1 = schedule1.end_time.hours * 60 + schedule1.end_time.minutes;
+                    let time_start2 = schedule2.start_time.hours * 60 + schedule2.start_time.minutes;
+                    let time_end2 = schedule2.end_time.hours * 60 + schedule2.end_time.minutes;
+
+                    if (time_start1 <= time_end2 && time_end1 >= time_start2) ||
+                       (time_start2 <= time_end1 && time_end2 >= time_start1) {
+                        conflicts.push(format!(
+                            "Calendar schedules {} and {} have overlapping dates and times",
+                            schedule1.id,
+                            schedule2.id
+                        ));
+                    }
+                }
+            }
+        }
+
+        if conflicts.is_empty() {
+            Ok(BasicResponse {
+                code: 0,
+                desc: "No conflicts found".to_string(),
+            })
+        } else {
+            Ok(BasicResponse {
+                code: 1,
+                desc: conflicts.join("\n"),
+            })
+        }
+    }
+}
+
+/// Parse time string in HH:MM format
+fn parse_time(time: &str) -> Result<(i32, i32), TrimlightError> {
+    let parts: Vec<&str> = time.split(':').collect();
+    if parts.len() != 2 {
+        return Err(TrimlightError::ApiError {
+            code: 400,
+            message: "Invalid time format. Use HH:MM".to_string(),
+        });
+    }
+
+    let hours = parts[0].parse::<i32>().map_err(|_| TrimlightError::ApiError {
+        code: 400,
+        message: "Invalid hours".to_string(),
+    })?;
+
+    let minutes = parts[1].parse::<i32>().map_err(|_| TrimlightError::ApiError {
+        code: 400,
+        message: "Invalid minutes".to_string(),
+    })?;
+
+    if hours < 0 || hours > 23 || minutes < 0 || minutes > 59 {
+        return Err(TrimlightError::ApiError {
+            code: 400,
+            message: "Invalid time values".to_string(),
+        });
+    }
+
+    Ok((hours, minutes))
+}
+
+/// Parse date string in MM-DD format
+fn parse_date(date: &str) -> Result<(i32, i32), TrimlightError> {
+    let parts: Vec<&str> = date.split('-').collect();
+    if parts.len() != 2 {
+        return Err(TrimlightError::ApiError {
+            code: 400,
+            message: "Invalid date format. Use MM-DD".to_string(),
+        });
+    }
+
+    let month = parts[0].parse::<i32>().map_err(|_| TrimlightError::ApiError {
+        code: 400,
+        message: "Invalid month".to_string(),
+    })?;
+
+    let day = parts[1].parse::<i32>().map_err(|_| TrimlightError::ApiError {
+        code: 400,
+        message: "Invalid day".to_string(),
+    })?;
+
+    if month < 1 || month > 12 || day < 1 || day > 31 {
+        return Err(TrimlightError::ApiError {
+            code: 400,
+            message: "Invalid date values".to_string(),
+        });
+    }
+
+    Ok((month, day))
 }
