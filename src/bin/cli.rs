@@ -353,6 +353,9 @@ enum Commands {
     /// Manage schedules
     #[command(subcommand)]
     Schedule(ScheduleCommands),
+    /// Manage combined effects (multiple effects running in sequence)
+    #[command(subcommand)]
+    Combined(CombinedCommands),
 }
 
 #[derive(Subcommand)]
@@ -452,6 +455,28 @@ enum ScheduleCommands {
     },
     /// Check for schedule conflicts
     Check {
+        /// Device ID (optional, uses first device if not specified)
+        #[arg(short, long)]
+        device: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum CombinedCommands {
+    /// Set a combined effect sequence
+    Set {
+        /// Device ID (optional, uses first device if not specified)
+        #[arg(short, long)]
+        device: Option<String>,
+        /// List of effect IDs to run in sequence (comma-separated)
+        #[arg(short, long)]
+        effects: String,
+        /// Interval between effects in seconds (1-3600)
+        #[arg(short, long, default_value = "60")]
+        interval: i32,
+    },
+    /// Clear the combined effect sequence
+    Clear {
         /// Device ID (optional, uses first device if not specified)
         #[arg(short, long)]
         device: Option<String>,
@@ -875,6 +900,61 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     } else {
                         if response.code == 0 {
                             println!("No schedule conflicts found");
+                        } else {
+                            println!("Error: {} (code: {})", response.desc, response.code);
+                        }
+                    }
+                }
+            }
+        }
+        Commands::Combined(combined_command) => {
+            match combined_command {
+                CombinedCommands::Set { device, effects, interval } => {
+                    let device_id = match device {
+                        Some(id) => id,
+                        None => get_default_device(&client).await?,
+                    };
+
+                    // Parse effect IDs
+                    let effect_ids: Vec<i32> = effects
+                        .split(',')
+                        .map(|s| s.trim().parse::<i32>())
+                        .collect::<Result<Vec<i32>, _>>()
+                        .map_err(|_| "Invalid effect ID format. Use comma-separated numbers")?;
+
+                    if effect_ids.is_empty() {
+                        eprintln!("Error: At least one effect ID must be provided");
+                        std::process::exit(1);
+                    }
+
+                    if interval < 1 || interval > 3600 {
+                        eprintln!("Error: Interval must be between 1 and 3600 seconds");
+                        std::process::exit(1);
+                    }
+
+                    let response = client.set_combined_effect(&device_id, &effect_ids, interval).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&response)?);
+                    } else {
+                        if response.code == 0 {
+                            println!("Combined effect sequence set successfully");
+                        } else {
+                            println!("Error: {} (code: {})", response.desc, response.code);
+                        }
+                    }
+                }
+                CombinedCommands::Clear { device } => {
+                    let device_id = match device {
+                        Some(id) => id,
+                        None => get_default_device(&client).await?,
+                    };
+
+                    let response = client.clear_combined_effect(&device_id).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&response)?);
+                    } else {
+                        if response.code == 0 {
+                            println!("Combined effect sequence cleared successfully");
                         } else {
                             println!("Error: {} (code: {})", response.desc, response.code);
                         }

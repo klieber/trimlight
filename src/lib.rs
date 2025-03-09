@@ -744,6 +744,48 @@ impl TrimlightClient {
             })
         }
     }
+
+    /// Set a combined effect sequence
+    pub async fn set_combined_effect(
+        &self,
+        device_id: &str,
+        effect_ids: &[i32],
+        interval: i32,
+    ) -> Result<BasicResponse, TrimlightError> {
+        let body = serde_json::json!({
+            "deviceId": device_id,
+            "payload": {
+                "effectIds": effect_ids,
+                "interval": interval
+            }
+        });
+
+        self.request(
+            reqwest::Method::POST,
+            "/v1/oauth/resources/device/effect/combined/set",
+            Some(&body),
+        ).await
+    }
+
+    /// Clear the combined effect sequence
+    pub async fn clear_combined_effect(
+        &self,
+        device_id: &str,
+    ) -> Result<BasicResponse, TrimlightError> {
+        let body = serde_json::json!({
+            "deviceId": device_id,
+            "payload": {
+                "effectIds": [],
+                "interval": 0
+            }
+        });
+
+        self.request(
+            reqwest::Method::POST,
+            "/v1/oauth/resources/device/effect/combined/set",
+            Some(&body),
+        ).await
+    }
 }
 
 /// Parse time string in HH:MM format
