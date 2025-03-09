@@ -269,7 +269,7 @@ impl TrimlightClient {
 
         self.request(
             Method::POST,
-            "/v1/oauth/resources/device/effect/add",
+            "/v1/oauth/resources/device/effect/save",
             Some(&body),
         )
         .await
@@ -314,7 +314,7 @@ impl TrimlightClient {
 
         self.request(
             Method::POST,
-            "/v1/oauth/resources/device/effect/update",
+            "/v1/oauth/resources/device/effect/save",
             Some(&body),
         )
         .await
@@ -1011,7 +1011,7 @@ mod tests {
             }
         });
 
-        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/add")
+        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/save")
             .match_header("authorization", mockito::Matcher::Any)
             .match_header("S-ClientId", mockito::Matcher::Any)
             .match_header("S-Timestamp", mockito::Matcher::Any)
@@ -1084,7 +1084,7 @@ mod tests {
         });
 
         let _m2 = server
-            .mock("POST", "/v1/oauth/resources/device/effect/update")
+            .mock("POST", "/v1/oauth/resources/device/effect/save")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(update_response.to_string())
