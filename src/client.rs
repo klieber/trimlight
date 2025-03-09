@@ -219,6 +219,7 @@ impl TrimlightClient {
         mode: i32,
         speed: i32,
         brightness: i32,
+        pixel_len: i32,
         pixels: Option<Vec<Pixel>>,
     ) -> Result<BasicResponse, TrimlightError> {
         let body = serde_json::json!({
@@ -228,6 +229,7 @@ impl TrimlightClient {
                 "mode": mode,
                 "speed": speed,
                 "brightness": brightness,
+                "pixelLen": pixel_len,
                 "pixels": pixels
             }
         });
@@ -293,7 +295,7 @@ impl TrimlightClient {
             .ok_or_else(|| TrimlightError::ApiError {
                 code: 404,
                 message: format!("Effect {} not found", effect_id),
-            })?;
+        })?;
 
         let body = serde_json::json!({
             "deviceId": device_id,
@@ -351,7 +353,7 @@ impl TrimlightClient {
             .ok_or_else(|| TrimlightError::ApiError {
                 code: 404,
                 message: format!("Effect {} not found", effect_id),
-            })?;
+        })?;
 
         let body = serde_json::json!({
             "deviceId": device_id,
@@ -480,8 +482,8 @@ impl TrimlightClient {
             "calendar" => "/v1/oauth/resources/device/schedule/calendar/delete",
             _ => {
                 return Err(TrimlightError::ApiError {
-                    code: 400,
-                    message: "Invalid schedule type. Must be 'daily' or 'calendar'".to_string(),
+                code: 400,
+                message: "Invalid schedule type. Must be 'daily' or 'calendar'".to_string(),
                 })
             }
         };
@@ -533,8 +535,8 @@ impl TrimlightClient {
             "calendar" => "/v1/oauth/resources/device/schedule/calendar/update",
             _ => {
                 return Err(TrimlightError::ApiError {
-                    code: 400,
-                    message: "Invalid schedule type. Must be 'daily' or 'calendar'".to_string(),
+                code: 400,
+                message: "Invalid schedule type. Must be 'daily' or 'calendar'".to_string(),
                 })
             }
         };
@@ -1596,6 +1598,60 @@ mod tests {
 
         let client = create_test_client(&server).await;
         let result = client.clear_overlay_effects("test123").await.unwrap();
+
+        assert_eq!(result.code, 0);
+        assert_eq!(result.desc, "Success");
+    }
+
+    #[tokio::test]
+    async fn test_preview_custom_effect() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let pixels = vec![
+            Pixel {
+                index: 0,
+                count: 1,
+                color: 0xFF0000,  // Red
+                disable: false,
+            },
+            Pixel {
+                index: 1,
+                count: 1,
+                color: 0x00FF00,  // Green
+                disable: false,
+            },
+            Pixel {
+                index: 2,
+                count: 1,
+                color: 0x0000FF,  // Blue
+                disable: false,
+            },
+        ];
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/preview")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"category":1,"mode":1,"speed":5,"brightness":100,"pixelLen":50,"pixels":[{"index":0,"count":1,"color":16711680,"disable":false},{"index":1,"count":1,"color":65280,"disable":false},{"index":2,"count":1,"color":255,"disable":false}]}}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client
+            .preview_custom_effect("test123", 1, 5, 100, 50, Some(pixels))
+            .await
+            .unwrap();
 
         assert_eq!(result.code, 0);
         assert_eq!(result.desc, "Success");
