@@ -1299,7 +1299,7 @@ enum EffectCommands {
         #[arg(short, long, requires = "built_in")]
         reverse: bool,
         /// JSON array of pixel colors for custom effects (custom effects only)
-        #[arg(long, requires = "custom")]
+        #[arg(long, requires = "custom", required_if_eq("custom", "Some(0)"))]
         pixels: Option<String>,
     },
     /// Add a new custom effect
@@ -2036,6 +2036,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .await?
                     } else {
                         // Custom effect
+                        if parsed_pixels.is_none() {
+                            eprintln!("The --pixels parameter is required for custom effects");
+                            std::process::exit(1);
+                        }
                         client
                             .preview_custom_effect(
                                 &device_id,
