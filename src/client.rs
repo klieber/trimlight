@@ -196,7 +196,7 @@ impl TrimlightClient {
         let body = serde_json::json!({
             "deviceId": device_id,
             "payload": {
-                "category": 0,  // 0 for built-in effects
+                "category": 1,  // 1 for built-in effects
                 "mode": mode,
                 "speed": speed,
                 "brightness": brightness,
@@ -219,17 +219,15 @@ impl TrimlightClient {
         mode: i32,
         speed: i32,
         brightness: i32,
-        pixel_len: i32,
         pixels: Option<Vec<Pixel>>,
     ) -> Result<BasicResponse, TrimlightError> {
         let body = serde_json::json!({
             "deviceId": device_id,
             "payload": {
-                "category": 1,  // 1 for custom effects
+                "category": 2,  // 2 for custom effects
                 "mode": mode,
                 "speed": speed,
                 "brightness": brightness,
-                "pixelLen": pixel_len,
                 "pixels": pixels
             }
         });
@@ -982,7 +980,7 @@ mod tests {
             .match_header("authorization", mockito::Matcher::Any)
             .match_header("S-ClientId", mockito::Matcher::Any)
             .match_header("S-Timestamp", mockito::Matcher::Any)
-            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"category":0,"mode":1,"speed":5,"brightness":100,"pixelLen":50,"reverse":false}}"#.to_string()))
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"category":1,"mode":1,"speed":5,"brightness":100,"pixelLen":50,"reverse":false}}"#.to_string()))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(mock_response.to_string())
@@ -1640,7 +1638,7 @@ mod tests {
             .match_header("authorization", mockito::Matcher::Any)
             .match_header("S-ClientId", mockito::Matcher::Any)
             .match_header("S-Timestamp", mockito::Matcher::Any)
-            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"category":1,"mode":1,"speed":5,"brightness":100,"pixelLen":50,"pixels":[{"index":0,"count":1,"color":16711680,"disable":false},{"index":1,"count":1,"color":65280,"disable":false},{"index":2,"count":1,"color":255,"disable":false}]}}"#.to_string()))
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"category":2,"mode":1,"speed":5,"brightness":100,"pixelLen":50,"pixels":[{"index":0,"count":1,"color":16711680,"disable":false},{"index":1,"count":1,"color":65280,"disable":false},{"index":2,"count":1,"color":255,"disable":false}]}}"#.to_string()))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(mock_response.to_string())
@@ -1649,7 +1647,7 @@ mod tests {
 
         let client = create_test_client(&server).await;
         let result = client
-            .preview_custom_effect("test123", 1, 5, 100, 50, Some(pixels))
+            .preview_custom_effect("test123", 1, 5, 100, Some(pixels))
             .await
             .unwrap();
 
