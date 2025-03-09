@@ -9,7 +9,7 @@ A command-line interface for controlling Trimlight LED devices. This tool provid
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/trimlight
+git clone https://github.com/klieber/trimlight
 cd trimlight
 
 # Build the project
@@ -97,13 +97,16 @@ trimlight-cli effects view --device ID --id 1
 Preview an effect:
 ```bash
 # Basic usage
-trimlight-cli effects preview --mode 1
+trimlight-cli effects preview --built-in 1
 
-# Full customization
-trimlight-cli effects preview --mode 1 --speed 150 --brightness 200 --pixel-len 45 --reverse
+# Full customization of a built-in effect
+trimlight-cli effects preview --built-in 1 --speed 150 --brightness 200 --pixel-len 45 --reverse
+
+# Preview a custom pattern with pixel data
+trimlight-cli effects preview --pattern 1 --speed 150 --brightness 200 --pixels "255,0,0:1;0,255,0:2"
 
 # Specify a particular device
-trimlight-cli effects preview --device ID --mode 1
+trimlight-cli effects preview --device ID --built-in 1
 ```
 
 List and search available effect modes:
@@ -116,16 +119,22 @@ trimlight-cli effects modes --search rainbow
 
 # Filter by category
 trimlight-cli effects modes --built-in  # Show only built-in effects
-trimlight-cli effects modes --custom    # Show only custom effects
+trimlight-cli effects modes --pattern   # Show only custom patterns
 ```
 
 Manage custom effects:
 ```bash
 # Add a new effect
-trimlight-cli effects add --name "My Effect" --mode 1
+trimlight-cli effects add --name "My Effect" --pattern 1
+
+# Add a custom effect with pixel data
+trimlight-cli effects add --name "Custom Pattern" --pattern 1 --pixels "255,0,0:1;0,255,0:2"
 
 # Update an existing effect
 trimlight-cli effects update --id 1 --name "New Name"
+
+# Update an effect with new pixel data
+trimlight-cli effects update --id 1 --pixels "255,0,0:1;0,255,0:2"
 
 # Delete an effect
 trimlight-cli effects delete --id 1
@@ -169,6 +178,24 @@ trimlight-cli switch --manual --json
 The Trimlight system supports two types of effects:
 - Built-in Effects (modes 0-179): Pre-programmed patterns including rainbows, comets, waves, and more
 - Custom Effects (modes 0-16): Configurable effects with pixel-by-pixel control
+
+### Pixel Data Format
+
+When specifying pixel data for custom effects, use the following format:
+```
+R,G,B:count[:disabled];R,G,B:count[:disabled];...
+```
+
+Where:
+- R,G,B: RGB color values (0-255)
+- count: Number of consecutive pixels with this color (default: 1)
+- disabled: Optional, 0=enabled, 1=disabled (default: 0)
+
+Example:
+```bash
+# 1 red pixel, followed by 2 green pixels, followed by 1 disabled blue pixel
+trimlight-cli effects add --name "Custom" --pattern 1 --pixels "255,0,0:1;0,255,0:2;0,0,255:1:1"
+```
 
 For a complete list of available effects and their descriptions, see [Effect Documentation](docs/effects.md).
 
