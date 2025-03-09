@@ -404,6 +404,9 @@ enum EffectCommands {
         /// Device ID (optional, uses first device if not specified)
         #[arg(short, long)]
         device: Option<String>,
+        /// Show detailed information for each effect
+        #[arg(long)]
+        details: bool,
     },
     /// List and search available effect modes
     #[command(after_help = "Examples:\n\
@@ -953,14 +956,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Commands::Effects(effect_command) => {
             match effect_command {
-                EffectCommands::List { device } => {
+                EffectCommands::List { device, details } => {
                     let device_id = match device {
                         Some(id) => id,
                         None => get_default_device(&client).await?,
                     };
-                    let details = client.get_device_details(&device_id).await?;
+                    let details_response = client.get_device_details(&device_id).await?;
                     if cli.json {
-                        let effects_json: Vec<serde_json::Value> = details.effects
+                        let effects_json: Vec<serde_json::Value> = details_response.effects
                             .iter()
                             .map(|effect| serde_json::json!({
                                 "id": effect.id,
@@ -975,25 +978,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .collect();
                         println!("{}", serde_json::to_string_pretty(&effects_json)?);
                     } else {
-                        if details.effects.is_empty() {
+                        if details_response.effects.is_empty() {
                             println!("No saved effects found");
                         } else {
-                            println!("Saved Effects:");
-                            for effect in details.effects {
-                                println!("- Effect {} ({})", effect.id, effect.name);
-                                println!("  Mode: {}", effect.mode);
-                                println!("  Speed: {}", effect.speed);
-                                println!("  Brightness: {}", effect.brightness);
-                                if let Some(len) = effect.pixel_len {
-                                    println!("  Pixel Length: {}", len);
+                            if details {
+                                println!("Saved Effects:");
+                                for effect in details_response.effects {
+                                    println!("- Effect {} ({})", effect.id, effect.name);
+                                    println!("  Mode: {}", effect.mode);
+                                    println!("  Speed: {}", effect.speed);
+                                    println!("  Brightness: {}", effect.brightness);
+                                    if let Some(len) = effect.pixel_len {
+                                        println!("  Pixel Length: {}", len);
+                                    }
+                                    if let Some(rev) = effect.reverse {
+                                        println!("  Reverse: {}", rev);
+                                    }
+                                    if let Some(pixels) = effect.pixels {
+                                        println!("  Custom Pixels: {} defined", pixels.len());
+                                    }
+                                    println!();
                                 }
-                                if let Some(rev) = effect.reverse {
-                                    println!("  Reverse: {}", rev);
+                            } else {
+                                for effect in details_response.effects {
+                                    println!("{} - {}", effect.id, effect.name);
                                 }
-                                if let Some(pixels) = effect.pixels {
-                                    println!("  Custom Pixels: {} defined", pixels.len());
-                                }
-                                println!();
                             }
                         }
                     }
