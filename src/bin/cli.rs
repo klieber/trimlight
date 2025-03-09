@@ -286,42 +286,6 @@ enum Commands {
         #[arg(short, long)]
         name: String,
     },
-    /// Preview a built-in effect
-    #[command(after_help = "Examples:\n\
-    # Basic usage with just mode\n\
-    trimlight-cli effect --mode 1\n\
-    \n\
-    # Full customization\n\
-    trimlight-cli effect --mode 1 --speed 150 --brightness 200 --pixel-len 45 --reverse\n\
-    \n\
-    # Specify a particular device\n\
-    trimlight-cli effect --device abc123 --mode 1\n\
-    \n\
-    Common effects:\n\
-    - Mode 0: Rainbow Gradual Chase\n\
-    - Mode 1: Rainbow Comet\n\
-    - Mode 2: Rainbow Segment\n\
-    - Mode 3: Rainbow Wave")]
-    Effect {
-        /// Device ID (optional, uses first device if not specified)
-        #[arg(short, long)]
-        device: Option<String>,
-        /// Effect mode number (0-179)
-        #[arg(short, long)]
-        mode: i32,
-        /// Effect animation speed (0=slowest, 255=fastest)
-        #[arg(short = 's', long, default_value = "100")]
-        speed: i32,
-        /// LED brightness level (0=off, 255=maximum)
-        #[arg(short, long, default_value = "100")]
-        brightness: i32,
-        /// Number of LEDs to use in the effect (1-90)
-        #[arg(short, long, default_value = "30")]
-        pixel_len: i32,
-        /// Reverse the effect animation direction
-        #[arg(short, long)]
-        reverse: bool,
-    },
     /// List and search available effect modes
     #[command(after_help = "Examples:\n\
     # List all modes\n\
@@ -356,7 +320,7 @@ enum Commands {
     /// Manage combined effects (multiple effects running in sequence)
     #[command(subcommand)]
     Combined(CombinedCommands),
-    /// Manage saved effects
+    /// Manage and control effects
     #[command(subcommand)]
     Effects(EffectCommands),
 }
@@ -493,6 +457,42 @@ enum EffectCommands {
         /// Device ID (optional, uses first device if not specified)
         #[arg(short, long)]
         device: Option<String>,
+    },
+    /// Preview a built-in or custom effect
+    #[command(after_help = "Examples:\n\
+    # Basic usage with just mode\n\
+    trimlight-cli effects preview --mode 1\n\
+    \n\
+    # Full customization\n\
+    trimlight-cli effects preview --mode 1 --speed 150 --brightness 200 --pixel-len 45 --reverse\n\
+    \n\
+    # Specify a particular device\n\
+    trimlight-cli effects preview --device abc123 --mode 1\n\
+    \n\
+    Common effects:\n\
+    - Mode 0: Rainbow Gradual Chase\n\
+    - Mode 1: Rainbow Comet\n\
+    - Mode 2: Rainbow Segment\n\
+    - Mode 3: Rainbow Wave")]
+    Preview {
+        /// Device ID (optional, uses first device if not specified)
+        #[arg(short, long)]
+        device: Option<String>,
+        /// Effect mode number (0-179)
+        #[arg(short, long)]
+        mode: i32,
+        /// Effect animation speed (0=slowest, 255=fastest)
+        #[arg(short = 's', long, default_value = "100")]
+        speed: i32,
+        /// LED brightness level (0=off, 255=maximum)
+        #[arg(short, long, default_value = "100")]
+        brightness: i32,
+        /// Number of LEDs to use in the effect (1-90)
+        #[arg(short, long, default_value = "30")]
+        pixel_len: i32,
+        /// Reverse the effect animation direction
+        #[arg(short, long)]
+        reverse: bool,
     },
     /// Add a new custom effect
     Add {
@@ -734,48 +734,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 if response.code == 0 {
                     println!("Device renamed successfully");
-                } else {
-                    println!("Error: {} (code: {})", response.desc, response.code);
-                }
-            }
-        }
-        Commands::Effect {
-            device,
-            mode,
-            speed,
-            brightness,
-            pixel_len,
-            reverse,
-        } => {
-            if mode < 0 || mode > 179 {
-                eprintln!("Invalid mode. Must be between 0 and 179");
-                std::process::exit(1);
-            }
-            if speed < 0 || speed > 255 {
-                eprintln!("Invalid speed. Must be between 0 and 255");
-                std::process::exit(1);
-            }
-            if brightness < 0 || brightness > 255 {
-                eprintln!("Invalid brightness. Must be between 0 and 255");
-                std::process::exit(1);
-            }
-            if pixel_len < 1 || pixel_len > 90 {
-                eprintln!("Invalid pixel length. Must be between 1 and 90");
-                std::process::exit(1);
-            }
-
-            let device_id = match device {
-                Some(id) => id,
-                None => get_default_device(&client).await?,
-            };
-            let response = client
-                .preview_builtin_effect(&device_id, mode, speed, brightness, pixel_len, reverse)
-                .await?;
-            if cli.json {
-                println!("{}", serde_json::to_string_pretty(&response)?);
-            } else {
-                if response.code == 0 {
-                    println!("Effect preview started successfully");
                 } else {
                     println!("Error: {} (code: {})", response.desc, response.code);
                 }
@@ -1079,6 +1037,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 }
                                 println!();
                             }
+                        }
+                    }
+                }
+                EffectCommands::Preview { device, mode, speed, brightness, pixel_len, reverse } => {
+                    if mode < 0 || mode > 179 {
+                        eprintln!("Invalid mode. Must be between 0 and 179");
+                        std::process::exit(1);
+                    }
+                    if speed < 0 || speed > 255 {
+                        eprintln!("Invalid speed. Must be between 0 and 255");
+                        std::process::exit(1);
+                    }
+                    if brightness < 0 || brightness > 255 {
+                        eprintln!("Invalid brightness. Must be between 0 and 255");
+                        std::process::exit(1);
+                    }
+                    if pixel_len < 1 || pixel_len > 90 {
+                        eprintln!("Invalid pixel length. Must be between 1 and 90");
+                        std::process::exit(1);
+                    }
+
+                    let device_id = match device {
+                        Some(id) => id,
+                        None => get_default_device(&client).await?,
+                    };
+                    let response = client
+                        .preview_builtin_effect(&device_id, mode, speed, brightness, pixel_len, reverse)
+                        .await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&response)?);
+                    } else {
+                        if response.code == 0 {
+                            println!("Effect preview started successfully");
+                        } else {
+                            println!("Error: {} (code: {})", response.desc, response.code);
                         }
                     }
                 }
