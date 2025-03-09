@@ -532,6 +532,21 @@ enum EffectCommands {
     /// Manage combined effects (multiple effects running in sequence)
     #[command(subcommand)]
     Combined(CombinedCommands),
+    /// View (load) a saved effect
+    #[command(after_help = "Examples:\n\
+    # View a saved effect by ID\n\
+    trimlight-cli effects view --id 1\n\
+    \n\
+    # Specify a particular device\n\
+    trimlight-cli effects view --device abc123 --id 1")]
+    View {
+        /// Device ID (optional, uses first device if not specified)
+        #[arg(short, long)]
+        device: Option<String>,
+        /// Effect ID to view
+        #[arg(short, long)]
+        id: i32,
+    },
 }
 
 #[derive(Subcommand)]
@@ -1139,6 +1154,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     println!("Error: {} (code: {})", response.desc, response.code);
                                 }
                             }
+                        }
+                    }
+                }
+                EffectCommands::View { device, id } => {
+                    let device_id = match device {
+                        Some(id) => id,
+                        None => get_default_device(&client).await?,
+                    };
+                    let response = client.view_effect(&device_id, id).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&response)?);
+                    } else {
+                        if response.code == 0 {
+                            println!("Effect loaded successfully");
+                        } else {
+                            println!("Error: {} (code: {})", response.desc, response.code);
                         }
                     }
                 }

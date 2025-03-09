@@ -60,6 +60,15 @@ List saved effects:
 trimlight-cli effects list
 ```
 
+View a saved effect:
+```bash
+# Load a saved effect by ID
+trimlight-cli effects view --id 1
+
+# Specify a particular device
+trimlight-cli effects view --device ID --id 1
+```
+
 Preview an effect:
 ```bash
 # Basic usage

@@ -57,6 +57,12 @@ let response = client.preview_builtin_effect(
     false         // Reverse direction
 ).await?;
 
+// View (load) a saved effect
+let response = client.view_effect(
+    "device_id",  // Device ID
+    1,            // Effect ID
+).await?;
+
 // Add a custom effect
 let response = client.add_effect(
     "device_id",

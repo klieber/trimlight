@@ -883,6 +883,41 @@ impl TrimlightClient {
             Some(&body),
         ).await
     }
+
+    /// View (load) a saved effect as the current effect
+    pub async fn view_effect(
+        &self,
+        device_id: &str,
+        effect_id: i32,
+    ) -> Result<BasicResponse, TrimlightError> {
+        // Get current effect details to ensure it exists
+        let details = self.get_device_details(device_id).await?;
+        let effect = details.effects.iter().find(|e| e.id == effect_id).ok_or_else(|| {
+            TrimlightError::ApiError {
+                code: 404,
+                message: format!("Effect {} not found", effect_id),
+            }
+        })?;
+
+        let body = serde_json::json!({
+            "deviceId": device_id,
+            "payload": {
+                "category": effect.category,
+                "mode": effect.mode,
+                "speed": effect.speed,
+                "brightness": effect.brightness,
+                "pixelLen": effect.pixel_len,
+                "reverse": effect.reverse,
+                "pixels": effect.pixels
+            }
+        });
+
+        self.request(
+            reqwest::Method::POST,
+            "/v1/oauth/resources/device/effect/preview",
+            Some(&body),
+        ).await
+    }
 }
 
 /// Parse time string in HH:MM format
