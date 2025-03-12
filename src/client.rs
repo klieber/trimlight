@@ -264,7 +264,10 @@ impl TrimlightClient {
             }
         });
 
-        let url = format!("{}{}", self.api_base_url, "/v1/oauth/resources/device/effect/save");
+        let url = format!(
+            "{}{}",
+            self.api_base_url, "/v1/oauth/resources/device/effect/save"
+        );
         let mut req = self.client.request(Method::POST, &url);
 
         // Add authentication headers
@@ -302,7 +305,10 @@ impl TrimlightClient {
             }
         });
 
-        let url = format!("{}{}", self.api_base_url, "/v1/oauth/resources/device/effect/save");
+        let url = format!(
+            "{}{}",
+            self.api_base_url, "/v1/oauth/resources/device/effect/save"
+        );
         let mut req = self.client.request(Method::POST, &url);
 
         // Add authentication headers
@@ -328,7 +334,7 @@ impl TrimlightClient {
         speed: Option<i32>,
         brightness: Option<i32>,
         pixel_len: Option<i32>,
-        reverse: Option<bool>
+        reverse: Option<bool>,
     ) -> Result<BasicResponse, TrimlightError> {
         let body = serde_json::json!({
             "deviceId": device_id,
@@ -1630,9 +1636,9 @@ mod tests {
             .add_custom_effect(
                 "test123",
                 "Test Effect",
-                1,      // mode
-                5,      // speed
-                100,    // brightness
+                1,   // mode
+                5,   // speed
+                100, // brightness
                 pixels,
             )
             .await
@@ -1675,11 +1681,11 @@ mod tests {
                 "test123",
                 1,                      // effect_id
                 Some("Updated Effect"), // name
-                Some(2),               // mode
-                Some(5),              // speed
-                Some(100),           // brightness
-                Some(50),           // pixel_len
-                Some(true),        // reverse
+                Some(2),                // mode
+                Some(5),                // speed
+                Some(100),              // brightness
+                Some(50),               // pixel_len
+                Some(true),             // reverse
             )
             .await
             .unwrap();
@@ -1732,10 +1738,10 @@ mod tests {
                 "test123",
                 1,                      // effect_id
                 Some("Updated Effect"), // name
-                Some(2),               // mode
-                Some(5),              // speed
-                Some(100),           // brightness
-                Some(pixels),       // pixels
+                Some(2),                // mode
+                Some(5),                // speed
+                Some(100),              // brightness
+                Some(pixels),           // pixels
             )
             .await
             .unwrap();

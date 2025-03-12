@@ -2162,8 +2162,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             } else {
                                 if response.code == 0 {
                                     if let Some(payload) = response.payload {
-                                        if let Some(id) = payload.get("id").and_then(|id| id.as_i64()) {
-                                            println!("Built-in effect added successfully (id={})", id);
+                                        if let Some(id) =
+                                            payload.get("id").and_then(|id| id.as_i64())
+                                        {
+                                            println!(
+                                                "Built-in effect added successfully (id={})",
+                                                id
+                                            );
                                         } else {
                                             println!("Built-in effect added successfully");
                                         }
@@ -2215,8 +2220,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             } else {
                                 if response.code == 0 {
                                     if let Some(payload) = response.payload {
-                                        if let Some(id) = payload.get("id").and_then(|id| id.as_i64()) {
-                                            println!("Custom effect added successfully (id={})", id);
+                                        if let Some(id) =
+                                            payload.get("id").and_then(|id| id.as_i64())
+                                        {
+                                            println!(
+                                                "Custom effect added successfully (id={})",
+                                                id
+                                            );
                                         } else {
                                             println!("Custom effect added successfully");
                                         }
@@ -2336,9 +2346,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                             // Get current effect details to determine if it's built-in or custom
                             let details = client.get_device_details(&device_id).await?;
-                            let effect = details.effects.iter().find(|e| e.id == id).ok_or_else(|| {
-                                format!("Effect with ID {} not found", id)
-                            })?;
+                            let effect = details
+                                .effects
+                                .iter()
+                                .find(|e| e.id == id)
+                                .ok_or_else(|| format!("Effect with ID {} not found", id))?;
 
                             let response = if effect.category == 1 {
                                 client
