@@ -2161,7 +2161,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 println!("{}", serde_json::to_string_pretty(&response)?);
                             } else {
                                 if response.code == 0 {
-                                    println!("Built-in effect added successfully");
+                                    if let Some(payload) = response.payload {
+                                        if let Some(id) = payload.get("id").and_then(|id| id.as_i64()) {
+                                            println!("Built-in effect added successfully (id={})", id);
+                                        } else {
+                                            println!("Built-in effect added successfully");
+                                        }
+                                    } else {
+                                        println!("Built-in effect added successfully");
+                                    }
                                 } else {
                                     println!("Error: {} (code: {})", response.desc, response.code);
                                 }
@@ -2206,7 +2214,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 println!("{}", serde_json::to_string_pretty(&response)?);
                             } else {
                                 if response.code == 0 {
-                                    println!("Custom effect added successfully");
+                                    if let Some(payload) = response.payload {
+                                        if let Some(id) = payload.get("id").and_then(|id| id.as_i64()) {
+                                            println!("Custom effect added successfully (id={})", id);
+                                        } else {
+                                            println!("Custom effect added successfully");
+                                        }
+                                    } else {
+                                        println!("Custom effect added successfully");
+                                    }
                                 } else {
                                     println!("Error: {} (code: {})", response.desc, response.code);
                                 }

@@ -250,7 +250,7 @@ impl TrimlightClient {
         brightness: i32,
         pixel_len: Option<i32>,
         reverse: Option<bool>,
-    ) -> Result<BasicResponse, TrimlightError> {
+    ) -> Result<ApiResponse<serde_json::Value>, TrimlightError> {
         let body = serde_json::json!({
             "deviceId": device_id,
             "payload": {
@@ -264,23 +264,32 @@ impl TrimlightClient {
             }
         });
 
-        self.request(
-            Method::POST,
-            "/v1/oauth/resources/device/effect/save",
-            Some(&body),
-        )
-        .await
+        let url = format!("{}{}", self.api_base_url, "/v1/oauth/resources/device/effect/save");
+        let mut req = self.client.request(Method::POST, &url);
+
+        // Add authentication headers
+        for (key, value) in self.generate_auth_headers() {
+            req = req.header(key.unwrap(), value);
+        }
+
+        req = req.json(&body);
+
+        let response = req.send().await?;
+        let response_text = response.text().await?;
+        let api_response: ApiResponse<serde_json::Value> = serde_json::from_str(&response_text)?;
+
+        Ok(api_response)
     }
 
     pub async fn add_custom_effect(
-      &self,
-      device_id: &str,
-      name: &str,
-      mode: i32,
-      speed: i32,
-      brightness: i32,
-      pixels: Vec<Pixel>,
-    ) -> Result<BasicResponse, TrimlightError> {
+        &self,
+        device_id: &str,
+        name: &str,
+        mode: i32,
+        speed: i32,
+        brightness: i32,
+        pixels: Vec<Pixel>,
+    ) -> Result<ApiResponse<serde_json::Value>, TrimlightError> {
         let body = serde_json::json!({
             "deviceId": device_id,
             "payload": {
@@ -293,12 +302,21 @@ impl TrimlightClient {
             }
         });
 
-        self.request(
-            Method::POST,
-            "/v1/oauth/resources/device/effect/save",
-            Some(&body),
-        )
-        .await
+        let url = format!("{}{}", self.api_base_url, "/v1/oauth/resources/device/effect/save");
+        let mut req = self.client.request(Method::POST, &url);
+
+        // Add authentication headers
+        for (key, value) in self.generate_auth_headers() {
+            req = req.header(key.unwrap(), value);
+        }
+
+        req = req.json(&body);
+
+        let response = req.send().await?;
+        let response_text = response.text().await?;
+        let api_response: ApiResponse<serde_json::Value> = serde_json::from_str(&response_text)?;
+
+        Ok(api_response)
     }
 
     pub async fn update_builtin_effect(
@@ -1529,6 +1547,7 @@ mod tests {
             "code": 0,
             "desc": "Success",
             "payload": {
+                "id": 123,
                 "code": 0,
                 "desc": "Success"
             }
@@ -1561,6 +1580,10 @@ mod tests {
 
         assert_eq!(result.code, 0);
         assert_eq!(result.desc, "Success");
+        assert!(result.payload.is_some());
+        if let Some(payload) = result.payload {
+            assert_eq!(payload.get("id").and_then(|id| id.as_i64()), Some(123));
+        }
     }
 
     #[tokio::test]
@@ -1570,6 +1593,7 @@ mod tests {
             "code": 0,
             "desc": "Success",
             "payload": {
+                "id": 456,
                 "code": 0,
                 "desc": "Success"
             }
@@ -1616,6 +1640,10 @@ mod tests {
 
         assert_eq!(result.code, 0);
         assert_eq!(result.desc, "Success");
+        assert!(result.payload.is_some());
+        if let Some(payload) = result.payload {
+            assert_eq!(payload.get("id").and_then(|id| id.as_i64()), Some(456));
+        }
     }
 
     #[tokio::test]
