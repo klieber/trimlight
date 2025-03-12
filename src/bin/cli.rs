@@ -1334,7 +1334,16 @@ enum EffectCommands {
         #[arg(long, requires = "pattern", required_if_eq("pattern", "Some(0)"))]
         pixels: Option<String>,
     },
-    /// Add a new custom effect
+    /// Add a new effect
+    #[command(after_help = "Examples:\n\
+    # Add a built-in effect\n\
+    trimlight-cli effects add --name \"Rainbow\" --built-in 1 --speed 150 --brightness 200 --pixel-len 45 --reverse\n\
+    \n\
+    # Add a custom pattern\n\
+    trimlight-cli effects add --name \"Custom\" --pattern 1 --speed 150 --brightness 200 --pixels \"255,0,0:1;0,255,0:2\"\n\
+    \n\
+    # Specify a particular device\n\
+    trimlight-cli effects add --device abc123 --name \"Rainbow\" --built-in 1")]
     Add {
         /// Device ID (optional, uses first device if not specified)
         #[arg(short, long)]
@@ -1342,26 +1351,41 @@ enum EffectCommands {
         /// Effect name
         #[arg(short, long)]
         name: String,
-        /// Pattern number (0-16 for custom patterns)
-        #[arg(long)]
-        pattern: i32,
+        /// Built-in effect mode number (0-179)
+        #[arg(long, conflicts_with = "pattern")]
+        built_in: Option<i32>,
+        /// Custom pattern number (0-16)
+        #[arg(long, conflicts_with = "built_in")]
+        pattern: Option<i32>,
         /// Effect speed (0-255)
         #[arg(short, long, default_value = "100")]
         speed: i32,
         /// LED brightness (0-255)
         #[arg(short, long, default_value = "100")]
         brightness: i32,
-        /// Number of LEDs to use (1-90)
-        #[arg(short, long)]
+        /// Number of LEDs to use (1-90, built-in effects only)
+        #[arg(short, long, requires = "built_in")]
         pixel_len: Option<i32>,
-        /// Reverse the effect direction
-        #[arg(short, long)]
+        /// Reverse the effect animation direction (built-in effects only)
+        #[arg(short, long, requires = "built_in")]
         reverse: bool,
-        /// Custom pixel colors (format: 'R,G,B[:count][:disabled];...')
-        #[arg(long)]
+        /// Custom pixel colors (format: 'R,G,B[:count][:disabled];...', patterns only)
+        #[arg(long, requires = "pattern")]
         pixels: Option<String>,
     },
     /// Update an existing effect
+    #[command(after_help = "Examples:\n\
+    # Update to a built-in effect\n\
+    trimlight-cli effects update --id 1 --built-in 1 --speed 150 --brightness 200 --pixel-len 45 --reverse\n\
+    \n\
+    # Update to a custom pattern\n\
+    trimlight-cli effects update --id 1 --pattern 1 --speed 150 --brightness 200 --pixels \"255,0,0:1;0,255,0:2\"\n\
+    \n\
+    # Update just the name\n\
+    trimlight-cli effects update --id 1 --name \"New Name\"\n\
+    \n\
+    # Specify a particular device\n\
+    trimlight-cli effects update --device abc123 --id 1 --built-in 1")]
     Update {
         /// Device ID (optional, uses first device if not specified)
         #[arg(short, long)]
@@ -1372,8 +1396,11 @@ enum EffectCommands {
         /// New effect name
         #[arg(short, long)]
         name: Option<String>,
-        /// New pattern number (0-16 for custom patterns)
-        #[arg(long)]
+        /// New built-in effect mode number (0-179)
+        #[arg(long, conflicts_with = "pattern")]
+        built_in: Option<i32>,
+        /// New custom pattern number (0-16)
+        #[arg(long, conflicts_with = "built_in")]
         pattern: Option<i32>,
         /// New effect speed (0-255)
         #[arg(short, long)]
@@ -1381,14 +1408,14 @@ enum EffectCommands {
         /// New LED brightness (0-255)
         #[arg(short, long)]
         brightness: Option<i32>,
-        /// New number of LEDs to use (1-90)
-        #[arg(short, long)]
+        /// New number of LEDs to use (1-90, built-in effects only)
+        #[arg(short, long, requires = "built_in")]
         pixel_len: Option<i32>,
-        /// New reverse direction setting
-        #[arg(short, long)]
+        /// New reverse direction setting (built-in effects only)
+        #[arg(short, long, requires = "built_in")]
         reverse: Option<bool>,
-        /// New custom pixel colors (format: 'R,G,B[:count][:disabled];...')
-        #[arg(long)]
+        /// New custom pixel colors (format: 'R,G,B[:count][:disabled];...', patterns only)
+        #[arg(long, requires = "pattern")]
         pixels: Option<String>,
     },
     /// Delete an effect
@@ -2097,6 +2124,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 EffectCommands::Add {
                     device,
                     name,
+                    built_in,
                     pattern,
                     speed,
                     brightness,
@@ -2104,51 +2132,89 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     reverse,
                     pixels,
                 } => {
-                    let device_id = match device {
-                        Some(id) => id,
-                        None => get_default_device(&client).await?,
-                    };
-
-                    // Parse pixels if provided
-                    let parsed_pixels: Option<Vec<Pixel>> = if let Some(pixels_str) = pixels {
-                        match parse_pixels(&pixels_str) {
-                            Ok(pixels) => Some(pixels),
-                            Err(e) => {
-                                eprintln!("Invalid pixels format: {}", e);
+                    // Validate that either built_in or pattern is specified
+                    match (built_in, pattern) {
+                        (Some(mode), None) => {
+                            if mode < 0 || mode > 179 {
+                                eprintln!("Invalid built-in mode. Must be between 0 and 179");
                                 std::process::exit(1);
                             }
-                        }
-                    } else {
-                        None
-                    };
 
-                    let response = client
-                        .add_effect(
-                            &device_id,
-                            &name,
-                            pattern,
-                            speed,
-                            brightness,
-                            pixel_len,
-                            Some(reverse),
-                            parsed_pixels,
-                        )
-                        .await?;
-                    if cli.json {
-                        println!("{}", serde_json::to_string_pretty(&response)?);
-                    } else {
-                        if response.code == 0 {
-                            if let Some(payload) = response.payload {
-                                if let Some(id) = payload.get("id").and_then(|id| id.as_i64()) {
-                                    println!("Effect added successfully (id={})", id);
+                            let device_id = match device {
+                                Some(id) => id,
+                                None => get_default_device(&client).await?,
+                            };
+
+                            let response = client
+                                .add_builtin_effect(
+                                    &device_id,
+                                    &name,
+                                    mode,
+                                    speed,
+                                    brightness,
+                                    pixel_len,
+                                    Some(reverse),
+                                )
+                                .await?;
+
+                            if cli.json {
+                                println!("{}", serde_json::to_string_pretty(&response)?);
+                            } else {
+                                if response.code == 0 {
+                                    println!("Built-in effect added successfully");
                                 } else {
-                                    println!("Effect added successfully");
+                                    println!("Error: {} (code: {})", response.desc, response.code);
+                                }
+                            }
+                        }
+                        (None, Some(mode)) => {
+                            if mode < 0 || mode > 16 {
+                                eprintln!("Invalid pattern number. Must be between 0 and 16");
+                                std::process::exit(1);
+                            }
+
+                            let device_id = match device {
+                                Some(id) => id,
+                                None => get_default_device(&client).await?,
+                            };
+
+                            // Parse pixels if provided for custom patterns
+                            let parsed_pixels = if let Some(pixels_str) = pixels {
+                                match parse_pixels(&pixels_str) {
+                                    Ok(pixels) => pixels,
+                                    Err(e) => {
+                                        eprintln!("Invalid pixels format: {}", e);
+                                        std::process::exit(1);
+                                    }
                                 }
                             } else {
-                                println!("Effect added successfully");
+                                Vec::new()
+                            };
+
+                            let response = client
+                                .add_custom_effect(
+                                    &device_id,
+                                    &name,
+                                    mode,
+                                    speed,
+                                    brightness,
+                                    parsed_pixels,
+                                )
+                                .await?;
+
+                            if cli.json {
+                                println!("{}", serde_json::to_string_pretty(&response)?);
+                            } else {
+                                if response.code == 0 {
+                                    println!("Custom effect added successfully");
+                                } else {
+                                    println!("Error: {} (code: {})", response.desc, response.code);
+                                }
                             }
-                        } else {
-                            println!("Error: {} (code: {})", response.desc, response.code);
+                        }
+                        _ => {
+                            eprintln!("Must specify either --built-in or --pattern");
+                            std::process::exit(1);
                         }
                     }
                 }
@@ -2156,6 +2222,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     device,
                     id,
                     name,
+                    built_in,
                     pattern,
                     speed,
                     brightness,
@@ -2163,44 +2230,140 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     reverse,
                     pixels,
                 } => {
-                    let device_id = match device {
-                        Some(id) => id,
-                        None => get_default_device(&client).await?,
-                    };
-
-                    // Parse pixels if provided
-                    let parsed_pixels: Option<Vec<Pixel>> = if let Some(pixels_str) = pixels {
-                        match parse_pixels(&pixels_str) {
-                            Ok(pixels) => Some(pixels),
-                            Err(e) => {
-                                eprintln!("Invalid pixels format: {}", e);
+                    // Validate mode numbers if provided
+                    match (built_in, pattern) {
+                        (Some(mode), None) => {
+                            if mode < 0 || mode > 179 {
+                                eprintln!("Invalid built-in mode. Must be between 0 and 179");
                                 std::process::exit(1);
                             }
-                        }
-                    } else {
-                        None
-                    };
 
-                    let response = client
-                        .update_effect(
-                            &device_id,
-                            id,
-                            name.as_deref(),
-                            pattern,
-                            speed,
-                            brightness,
-                            pixel_len,
-                            reverse,
-                            parsed_pixels,
-                        )
-                        .await?;
-                    if cli.json {
-                        println!("{}", serde_json::to_string_pretty(&response)?);
-                    } else {
-                        if response.code == 0 {
-                            println!("Effect updated successfully (id={})", id);
-                        } else {
-                            println!("Error: {} (code: {})", response.desc, response.code);
+                            let device_id = match device {
+                                Some(id) => id,
+                                None => get_default_device(&client).await?,
+                            };
+
+                            let response = client
+                                .update_builtin_effect(
+                                    &device_id,
+                                    id,
+                                    name.as_deref(),
+                                    Some(mode),
+                                    speed,
+                                    brightness,
+                                    pixel_len,
+                                    reverse,
+                                )
+                                .await?;
+
+                            if cli.json {
+                                println!("{}", serde_json::to_string_pretty(&response)?);
+                            } else {
+                                if response.code == 0 {
+                                    println!("Built-in effect updated successfully (id={})", id);
+                                } else {
+                                    println!("Error: {} (code: {})", response.desc, response.code);
+                                }
+                            }
+                        }
+                        (None, Some(mode)) => {
+                            if mode < 0 || mode > 16 {
+                                eprintln!("Invalid pattern number. Must be between 0 and 16");
+                                std::process::exit(1);
+                            }
+
+                            let device_id = match device {
+                                Some(id) => id,
+                                None => get_default_device(&client).await?,
+                            };
+
+                            // Parse pixels if provided for custom patterns
+                            let parsed_pixels = if let Some(pixels_str) = pixels {
+                                match parse_pixels(&pixels_str) {
+                                    Ok(pixels) => Some(pixels),
+                                    Err(e) => {
+                                        eprintln!("Invalid pixels format: {}", e);
+                                        std::process::exit(1);
+                                    }
+                                }
+                            } else {
+                                None
+                            };
+
+                            let response = client
+                                .update_custom_effect(
+                                    &device_id,
+                                    id,
+                                    name.as_deref(),
+                                    Some(mode),
+                                    speed,
+                                    brightness,
+                                    parsed_pixels,
+                                )
+                                .await?;
+
+                            if cli.json {
+                                println!("{}", serde_json::to_string_pretty(&response)?);
+                            } else {
+                                if response.code == 0 {
+                                    println!("Custom effect updated successfully (id={})", id);
+                                } else {
+                                    println!("Error: {} (code: {})", response.desc, response.code);
+                                }
+                            }
+                        }
+                        (None, None) => {
+                            let device_id = match device {
+                                Some(id) => id,
+                                None => get_default_device(&client).await?,
+                            };
+
+                            // Get current effect details to determine if it's built-in or custom
+                            let details = client.get_device_details(&device_id).await?;
+                            let effect = details.effects.iter().find(|e| e.id == id).ok_or_else(|| {
+                                format!("Effect with ID {} not found", id)
+                            })?;
+
+                            let response = if effect.category == 1 {
+                                client
+                                    .update_builtin_effect(
+                                        &device_id,
+                                        id,
+                                        name.as_deref(),
+                                        None,
+                                        speed,
+                                        brightness,
+                                        pixel_len,
+                                        reverse,
+                                    )
+                                    .await?
+                            } else {
+                                client
+                                    .update_custom_effect(
+                                        &device_id,
+                                        id,
+                                        name.as_deref(),
+                                        None,
+                                        speed,
+                                        brightness,
+                                        None,
+                                    )
+                                    .await?
+                            };
+
+                            if cli.json {
+                                println!("{}", serde_json::to_string_pretty(&response)?);
+                            } else {
+                                if response.code == 0 {
+                                    println!("Effect updated successfully (id={})", id);
+                                } else {
+                                    println!("Error: {} (code: {})", response.desc, response.code);
+                                }
+                            }
+                        }
+                        _ => {
+                            eprintln!("Cannot specify both --built-in and --pattern");
+                            std::process::exit(1);
                         }
                     }
                 }

@@ -10,7 +10,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-trimlight = { git = "https://github.com/yourusername/trimlight" }
+trimlight = { git = "https://github.com/klieber/trimlight" }
 ```
 
 ## Authentication
@@ -57,6 +57,30 @@ let response = client.preview_builtin_effect(
     false         // Reverse direction
 ).await?;
 
+// Preview a custom pattern with pixel data
+let pixels = vec![
+    Pixel {
+        index: 0,
+        count: 1,
+        color: 0xFF0000,  // Red
+        disable: false,
+    },
+    Pixel {
+        index: 1,
+        count: 2,
+        color: 0x00FF00,  // Green
+        disable: false,
+    },
+];
+
+let response = client.preview_custom_effect(
+    "device_id",
+    1,            // Pattern number (0-16)
+    100,          // Speed (0-255)
+    100,          // Brightness (0-255)
+    Some(pixels), // Optional pixel data
+).await?;
+
 // View (load) a saved effect
 let response = client.view_effect(
     "device_id",  // Device ID
@@ -67,25 +91,25 @@ let response = client.view_effect(
 let response = client.add_effect(
     "device_id",
     "My Effect",  // Effect name
-    1,            // Effect mode (0-16)
-    100,          // Speed
-    100,          // Brightness
+    1,            // Pattern number (0-16)
+    100,          // Speed (0-255)
+    100,          // Brightness (0-255)
     Some(30),     // Optional pixel length
     Some(false),  // Optional reverse direction
-    None,         // Optional pixel data
+    Some(pixels), // Optional pixel data
 ).await?;
 
 // Update an existing effect
 let response = client.update_effect(
     "device_id",
-    1,                    // Effect ID
-    Some("New Name"),    // Optional new name
-    Some(2),            // Optional new mode
-    Some(150),          // Optional new speed
-    Some(200),          // Optional new brightness
-    Some(45),           // Optional new pixel length
-    Some(true),         // Optional new reverse direction
-    None,               // Optional new pixel data
+    1,             // Effect ID
+    Some("New Name"), // Optional new name
+    Some(2),       // Optional new pattern number
+    Some(150),     // Optional new speed
+    Some(200),     // Optional new brightness
+    Some(45),      // Optional new pixel length
+    Some(true),    // Optional new reverse direction
+    Some(pixels),  // Optional new pixel data
 ).await?;
 
 // Delete an effect
@@ -113,13 +137,54 @@ let response = client.add_overlay_effect(
 let response = client.clear_overlay_effects("device_id").await?;
 ```
 
+### Schedule Management
+
+```rust
+// Get device schedules
+let schedules = client.get_device_schedules("device_id").await?;
+
+// Add a daily schedule
+let response = client.add_daily_schedule(
+    "device_id",
+    1,           // Effect ID
+    "18:00",     // Start time (HH:MM)
+    "23:00",     // End time (HH:MM)
+    127,         // Repetition (bit flags for days, 127=all days)
+).await?;
+
+// Add a calendar schedule
+let response = client.add_calendar_schedule(
+    "device_id",
+    1,           // Effect ID
+    "12-25",     // Start date (MM-DD)
+    "12-31",     // End date (MM-DD)
+    "18:00",     // Start time (HH:MM)
+    "23:00",     // End time (HH:MM)
+).await?;
+
+// Delete a schedule
+let response = client.delete_schedule(
+    "device_id",
+    1,           // Schedule ID
+    "daily",     // Schedule type ("daily" or "calendar")
+).await?;
+
+// Toggle a daily schedule
+let response = client.toggle_schedule(
+    "device_id",
+    1,           // Schedule ID
+    true,        // Enable/disable
+).await?;
+```
+
 ## Response Types
 
 ### DeviceList
 
 ```rust
-pub struct DeviceList {
+pub struct DeviceListResponse {
     pub total: i32,
+    pub current: i32,
     pub data: Vec<Device>,
 }
 
@@ -151,6 +216,29 @@ pub struct DeviceDetails {
 }
 ```
 
+### Effect
+
+```rust
+pub struct Effect {
+    pub id: i32,
+    pub name: String,
+    pub category: i32,      // 1=built-in, 2=custom
+    pub mode: i32,
+    pub speed: i32,
+    pub brightness: i32,
+    pub pixel_len: Option<i32>,
+    pub reverse: Option<bool>,
+    pub pixels: Option<Vec<Pixel>>,
+}
+
+pub struct Pixel {
+    pub index: i32,
+    pub count: i32,
+    pub color: i32,        // RGB color in format 0xRRGGBB
+    pub disable: bool,
+}
+```
+
 ### BasicResponse
 
 ```rust
@@ -167,12 +255,13 @@ The library uses a custom error type `TrimlightError` that wraps various error c
 ```rust
 pub enum TrimlightError {
     RequestError(reqwest::Error),
-    ApiError { code: i32, message: String },
     JsonError(serde_json::Error),
+    AuthError(String),
+    ApiError { code: i32, message: String },
 }
 ```
 
-All API methods return `Result<T, Box<dyn std::error::Error>>` where `T` is the appropriate response type.
+All API methods return `Result<T, TrimlightError>` where `T` is the appropriate response type.
 
 ## Built-in Effects
 

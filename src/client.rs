@@ -241,96 +241,128 @@ impl TrimlightClient {
         .await
     }
 
-    pub async fn add_effect(
+    pub async fn add_builtin_effect(
         &self,
         device_id: &str,
         name: &str,
-        pattern: i32,
+        mode: i32,
         speed: i32,
         brightness: i32,
         pixel_len: Option<i32>,
         reverse: Option<bool>,
-        pixels: Option<Vec<Pixel>>,
-    ) -> Result<ApiResponse<serde_json::Value>, TrimlightError> {
+    ) -> Result<BasicResponse, TrimlightError> {
         let body = serde_json::json!({
             "deviceId": device_id,
             "payload": {
                 "name": name,
-                "category": 2,  // 2 for custom effects
-                "mode": pattern,
+                "category": 1,
+                "mode": mode,
                 "speed": speed,
                 "brightness": brightness,
                 "pixelLen": pixel_len,
-                "reverse": reverse,
+                "reverse": reverse
+            }
+        });
+
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/effect/save",
+            Some(&body),
+        )
+        .await
+    }
+
+    pub async fn add_custom_effect(
+      &self,
+      device_id: &str,
+      name: &str,
+      mode: i32,
+      speed: i32,
+      brightness: i32,
+      pixels: Vec<Pixel>,
+    ) -> Result<BasicResponse, TrimlightError> {
+        let body = serde_json::json!({
+            "deviceId": device_id,
+            "payload": {
+                "name": name,
+                "category": 2,
+                "mode": mode,
+                "speed": speed,
+                "brightness": brightness,
                 "pixels": pixels
             }
         });
 
-        let url = format!(
-            "{}{}",
-            self.api_base_url, "/v1/oauth/resources/device/effect/save"
-        );
-        let mut req = self.client.request(Method::POST, &url);
-
-        // Add authentication headers
-        for (key, value) in self.generate_auth_headers() {
-            req = req.header(key.unwrap(), value);
-        }
-
-        req = req.json(&body);
-
-        let response = req.send().await?;
-        let response_text = response.text().await?;
-        let api_response: ApiResponse<serde_json::Value> = serde_json::from_str(&response_text)?;
-
-        Ok(api_response)
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/effect/save",
+            Some(&body),
+        )
+        .await
     }
 
-    pub async fn update_effect(
+    pub async fn update_builtin_effect(
         &self,
         device_id: &str,
         effect_id: i32,
         name: Option<&str>,
-        pattern: Option<i32>,
+        mode: Option<i32>,
         speed: Option<i32>,
         brightness: Option<i32>,
         pixel_len: Option<i32>,
-        reverse: Option<bool>,
-        pixels: Option<Vec<Pixel>>,
-    ) -> Result<ApiResponse<serde_json::Value>, TrimlightError> {
+        reverse: Option<bool>
+    ) -> Result<BasicResponse, TrimlightError> {
         let body = serde_json::json!({
             "deviceId": device_id,
             "payload": {
                 "id": effect_id,
-                "category": 2,  // 2 for custom effects
+                "category": 1,
                 "name": name,
-                "mode": pattern,
+                "mode": mode,
                 "speed": speed,
                 "brightness": brightness,
                 "pixelLen": pixel_len,
-                "reverse": reverse,
+                "reverse": reverse
+            }
+        });
+
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/effect/save",
+            Some(&body),
+        )
+        .await
+    }
+
+    pub async fn update_custom_effect(
+        &self,
+        device_id: &str,
+        effect_id: i32,
+        name: Option<&str>,
+        mode: Option<i32>,
+        speed: Option<i32>,
+        brightness: Option<i32>,
+        pixels: Option<Vec<Pixel>>,
+    ) -> Result<BasicResponse, TrimlightError> {
+        let body = serde_json::json!({
+            "deviceId": device_id,
+            "payload": {
+                "id": effect_id,
+                "category": 2,
+                "name": name,
+                "mode": mode,
+                "speed": speed,
+                "brightness": brightness,
                 "pixels": pixels
             }
         });
 
-        let url = format!(
-            "{}{}",
-            self.api_base_url, "/v1/oauth/resources/device/effect/save"
-        );
-        let mut req = self.client.request(Method::POST, &url);
-
-        // Add authentication headers
-        for (key, value) in self.generate_auth_headers() {
-            req = req.header(key.unwrap(), value);
-        }
-
-        req = req.json(&body);
-
-        let response = req.send().await?;
-        let response_text = response.text().await?;
-        let api_response: ApiResponse<serde_json::Value> = serde_json::from_str(&response_text)?;
-
-        Ok(api_response)
+        self.request(
+            Method::POST,
+            "/v1/oauth/resources/device/effect/save",
+            Some(&body),
+        )
+        .await
     }
 
     pub async fn delete_effect(
@@ -1013,98 +1045,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_add_effect() {
-        let mut server = Server::new_async().await;
-        let mock_response = serde_json::json!({
-            "code": 0,
-            "desc": "Success",
-            "payload": {
-                "code": 0,
-                "desc": "Success"
-            }
-        });
-
-        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/save")
-            .match_header("authorization", mockito::Matcher::Any)
-            .match_header("S-ClientId", mockito::Matcher::Any)
-            .match_header("S-Timestamp", mockito::Matcher::Any)
-            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"name":"Test Effect","category":2,"mode":1,"speed":5,"brightness":100,"pixelLen":50,"reverse":true,"pixels":null}}"#.to_string()))
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(mock_response.to_string())
-            .create_async()
-            .await;
-
-        let client = create_test_client(&server).await;
-        let result = client
-            .add_effect(
-                "test123",
-                "Test Effect",
-                1,          // pattern
-                5,          // speed
-                100,        // brightness
-                Some(50),   // pixel_len
-                Some(true), // reverse
-                None,       // pixels
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(result.code, 0);
-        assert_eq!(result.desc, "Success");
-    }
-
-    #[tokio::test]
-    async fn test_update_effect() {
-        let mut server = Server::new_async().await;
-
-        // Mock for update_effect
-        let update_response = serde_json::json!({
-            "code": 0,
-            "desc": "Success",
-            "payload": {
-                "code": 0,
-                "desc": "Success"
-            }
-        });
-
-        let _m = server
-            .mock("POST", "/v1/oauth/resources/device/effect/save")
-            .match_header("authorization", mockito::Matcher::Any)
-            .match_header("S-ClientId", mockito::Matcher::Any)
-            .match_header("S-Timestamp", mockito::Matcher::Any)
-            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"id":1,"category":2,"name":"Updated Effect","mode":2,"speed":null,"brightness":null,"pixelLen":null,"reverse":null,"pixels":null}}"#.to_string()))
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(update_response.to_string())
-            .create_async()
-            .await;
-
-        let client = create_test_client(&server).await;
-        let result = client
-            .update_effect(
-                "test123",
-                1,
-                Some("Updated Effect"),
-                Some(2), // pattern
-                None,
-                None,
-                None,
-                None,
-                None,
-            )
-            .await;
-
-        match result {
-            Ok(response) => {
-                assert_eq!(response.code, 0);
-                assert_eq!(response.desc, "Success");
-            }
-            Err(e) => panic!("Failed to update effect: {:?}", e),
-        }
-    }
-
-    #[tokio::test]
     async fn test_delete_effect() {
         let mut server = Server::new_async().await;
         let mock_response = serde_json::json!({
@@ -1135,69 +1075,6 @@ mod tests {
 
         assert_eq!(result.code, 0);
         assert_eq!(result.desc, "Success");
-    }
-
-    #[tokio::test]
-    async fn test_view_effect() {
-        let mut server = Server::new_async().await;
-
-        // Mock for get_device_details
-        let details_response = serde_json::json!({
-            "code": 0,
-            "desc": "Success",
-            "payload": {
-                "effects": [{
-                    "id": 1,
-                    "name": "Test Effect",
-                    "category": 2,
-                    "mode": 1,
-                    "speed": 5,
-                    "brightness": 100,
-                    "pixelLen": 50,
-                    "reverse": false,
-                    "pixels": null
-                }]
-            }
-        });
-
-        let _m1 = server
-            .mock("POST", "/v1/oauth/resources/device/get")
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(details_response.to_string())
-            .expect(1)
-            .create_async()
-            .await;
-
-        // Mock for view_effect
-        let view_response = serde_json::json!({
-            "code": 0,
-            "desc": "Success",
-            "payload": {
-                "code": 0,
-                "desc": "Success"
-            }
-        });
-
-        let _m2 = server
-            .mock("POST", "/v1/oauth/resources/device/effect/preview")
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(view_response.to_string())
-            .expect(1)
-            .create_async()
-            .await;
-
-        let client = create_test_client(&server).await;
-        let result = client.view_effect("test123", 1).await;
-
-        match result {
-            Ok(response) => {
-                assert_eq!(response.code, 0);
-                assert_eq!(response.desc, "Success");
-            }
-            Err(e) => panic!("Failed to view effect: {:?}", e),
-        }
     }
 
     #[tokio::test]
@@ -1638,6 +1515,200 @@ mod tests {
         let client = create_test_client(&server).await;
         let result = client
             .preview_custom_effect("test123", 1, 5, 100, Some(pixels))
+            .await
+            .unwrap();
+
+        assert_eq!(result.code, 0);
+        assert_eq!(result.desc, "Success");
+    }
+
+    #[tokio::test]
+    async fn test_add_builtin_effect() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/save")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"name":"Test Effect","category":1,"mode":1,"speed":5,"brightness":100,"pixelLen":50,"reverse":true}}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client
+            .add_builtin_effect(
+                "test123",
+                "Test Effect",
+                1,          // mode
+                5,          // speed
+                100,        // brightness
+                Some(50),   // pixel_len
+                Some(true), // reverse
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result.code, 0);
+        assert_eq!(result.desc, "Success");
+    }
+
+    #[tokio::test]
+    async fn test_add_custom_effect() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let pixels = vec![
+            Pixel {
+                index: 0,
+                count: 1,
+                color: 0xFF0000, // Red
+                disable: false,
+            },
+            Pixel {
+                index: 1,
+                count: 1,
+                color: 0x00FF00, // Green
+                disable: false,
+            },
+        ];
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/save")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"name":"Test Effect","category":2,"mode":1,"speed":5,"brightness":100,"pixels":[{"index":0,"count":1,"color":16711680,"disable":false},{"index":1,"count":1,"color":65280,"disable":false}]}}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client
+            .add_custom_effect(
+                "test123",
+                "Test Effect",
+                1,      // mode
+                5,      // speed
+                100,    // brightness
+                pixels,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result.code, 0);
+        assert_eq!(result.desc, "Success");
+    }
+
+    #[tokio::test]
+    async fn test_update_builtin_effect() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/save")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"id":1,"category":1,"name":"Updated Effect","mode":2,"speed":5,"brightness":100,"pixelLen":50,"reverse":true}}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client
+            .update_builtin_effect(
+                "test123",
+                1,                      // effect_id
+                Some("Updated Effect"), // name
+                Some(2),               // mode
+                Some(5),              // speed
+                Some(100),           // brightness
+                Some(50),           // pixel_len
+                Some(true),        // reverse
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result.code, 0);
+        assert_eq!(result.desc, "Success");
+    }
+
+    #[tokio::test]
+    async fn test_update_custom_effect() {
+        let mut server = Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "code": 0,
+            "desc": "Success",
+            "payload": {
+                "code": 0,
+                "desc": "Success"
+            }
+        });
+
+        let pixels = vec![
+            Pixel {
+                index: 0,
+                count: 1,
+                color: 0xFF0000, // Red
+                disable: false,
+            },
+            Pixel {
+                index: 1,
+                count: 2,
+                color: 0x00FF00, // Green
+                disable: false,
+            },
+        ];
+
+        let _m = server.mock("POST", "/v1/oauth/resources/device/effect/save")
+            .match_header("authorization", mockito::Matcher::Any)
+            .match_header("S-ClientId", mockito::Matcher::Any)
+            .match_header("S-Timestamp", mockito::Matcher::Any)
+            .match_body(mockito::Matcher::JsonString(r#"{"deviceId":"test123","payload":{"id":1,"category":2,"name":"Updated Effect","mode":2,"speed":5,"brightness":100,"pixels":[{"index":0,"count":1,"color":16711680,"disable":false},{"index":1,"count":2,"color":65280,"disable":false}]}}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = create_test_client(&server).await;
+        let result = client
+            .update_custom_effect(
+                "test123",
+                1,                      // effect_id
+                Some("Updated Effect"), // name
+                Some(2),               // mode
+                Some(5),              // speed
+                Some(100),           // brightness
+                Some(pixels),       // pixels
+            )
             .await
             .unwrap();
 

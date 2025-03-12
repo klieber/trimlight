@@ -288,7 +288,7 @@ POST /v1/oauth/resources/device/get
 | Field | Description | Type |
 |-------|-------------|------|
 | id | Effect identifier | Integer |
-| category | Effect category:<br>0: Built-in<br>1: Custom | Integer |
+| category | Effect category:<br>1: Built-in<br>2: Custom | Integer |
 | mode | Effect mode (0-179 for built-in, 0-16 for custom) | Integer |
 | speed | Animation speed (0-255) | Integer |
 | brightness | LED brightness (0-255) | Integer |
@@ -540,7 +540,7 @@ POST /v1/oauth/resources/device/effect/preview
 
 | Field | Description | Type |
 |-----------|-------------|-------|
-| category | Effect category (0 for built-in) | Integer |
+| category | Effect category (1 for built-in) | Integer |
 | mode | Effect mode number (0-179) | Integer |
 | speed | Animation speed (0-255) | Integer |
 | brightness | LED brightness (0-255) | Integer |
