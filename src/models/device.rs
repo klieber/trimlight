@@ -60,6 +60,14 @@ pub struct DeviceDateTime {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DeviceDate {
+    #[serde(default)]
+    pub month: i32,
+    #[serde(default)]
+    pub day: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct DeviceDetails {
     #[serde(default)]
     pub name: String,
