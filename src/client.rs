@@ -534,7 +534,7 @@ impl TrimlightClient {
 
         self.request(
             Method::POST,
-            "/v1/oauth/resources/device/schedule/calendar/add",
+            "/v1/oauth/resources/device/calendar/save",
             Some(&body),
         )
         .await
@@ -547,8 +547,8 @@ impl TrimlightClient {
         schedule_type: &str,
     ) -> Result<BasicResponse, TrimlightError> {
         let endpoint = match schedule_type.to_lowercase().as_str() {
-            "daily" => "/v1/oauth/resources/device/schedule/daily/delete",
-            "calendar" => "/v1/oauth/resources/device/schedule/calendar/delete",
+            // "daily" => "/v1/oauth/resources/device/schedule/daily/delete",
+            "calendar" => "/v1/oauth/resources/device/calendar/delete",
             _ => {
                 return Err(TrimlightError::ApiError {
                     code: 400,
@@ -573,17 +573,30 @@ impl TrimlightClient {
         schedule_id: i32,
         enable: bool,
     ) -> Result<BasicResponse, TrimlightError> {
+        let mut schedules = self.get_device_schedules(device_id).await?;
+        let schedule = schedules.daily.iter_mut()
+          .find(|s| s.id == schedule_id)
+          .ok_or_else(|| TrimlightError::ApiError {
+            code: 404,
+            message: format!("Schedule {} not found", schedule_id),
+          })?;
+        schedule.enable = enable;
+
+        let mut payload_value = serde_json::to_value(&schedule)?;
+
+        payload_value["currentDate"] = serde_json::json!(DeviceDate {
+          month: 1,
+          day: 1
+        });
+
         let body = serde_json::json!({
-            "deviceId": device_id,
-            "payload": {
-                "id": schedule_id,
-                "enable": enable
-            }
+          "deviceId": device_id,
+          "payload": payload_value
         });
 
         self.request(
             Method::POST,
-            "/v1/oauth/resources/device/schedule/daily/update",
+            "/v1/oauth/resources/device/daily/save",
             Some(&body),
         )
         .await
@@ -600,8 +613,8 @@ impl TrimlightClient {
         repetition: Option<i32>,
     ) -> Result<BasicResponse, TrimlightError> {
         let endpoint = match schedule_type.to_lowercase().as_str() {
-            "daily" => "/v1/oauth/resources/device/schedule/daily/update",
-            "calendar" => "/v1/oauth/resources/device/schedule/calendar/update",
+            "daily" => "/v1/oauth/resources/device/daily/save",
+            "calendar" => "/v1/oauth/resources/device/calendar/save",
             _ => {
                 return Err(TrimlightError::ApiError {
                     code: 400,

@@ -1862,7 +1862,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("{}", serde_json::to_string_pretty(&response)?);
                 } else {
                     if response.code == 0 {
-                        println!("Schedule toggled successfully");
+                      if enable {
+                        println!("Schedule enabled");
+                      } else {
+                        println!("Schedule disabled");
+                      }
                     } else {
                         println!("Error: {} (code: {})", response.desc, response.code);
                     }
